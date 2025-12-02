@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NucLigs Local Database</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- SheetJS (Excel) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- jQuery & 3Dmol -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+
+    <style>
+        body { overflow: hidden; } 
+        .scroll-custom::-webkit-scrollbar { width: 8px; }
+        .scroll-custom::-webkit-scrollbar-track { background: #f1f5f9; }
+        .scroll-custom::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .viewer-canvas { width: 100%; height: 100%; position: relative; background: radial-gradient(circle, #ffffff 0%, #f1f5f9 100%); }
+        
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Slide-over panel styles */
+        .slide-panel {
+            position: absolute;
+            top: 0;
+            right: -100%; /* Hidden by default */
+            width: 400px; /* Or adjust as needed */
+            height: 100%;
+            background: white;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            transition: right 0.3s ease-in-out;
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+        }
+        .slide-panel.open {
+            right: 0;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white shadow-lg z-20 flex-none">
+        <div class="px-6 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <!-- Database Icon -->
+                <img src="NucLigs.png" alt="NucLigs Logo"
+                class="w-10 h-10 rounded-md shadow-md object-contain">
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">NucLigs Database</h1>
+                    <p class="text-xs text-slate-400">Structure Analytics System</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-4 items-center">
+                <!-- Toggle Panel Button -->
+                <button onclick="togglePanel()" class="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded border border-slate-600 transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    Show Analysis
+                </button>
+
+                <div class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded border border-slate-700">
+                    <label class="text-xs font-bold text-slate-400 uppercase">DATA SOURCE</label>
+                    <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" 
+                           class="text-xs text-slate-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 overflow-hidden relative"> 
+        
+        <!-- Sidebar List -->
+        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shadow-xl z-10">
+            <div class="p-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <h2 class="font-bold text-slate-700 text-sm">Structure Registry</h2>
+                <span id="itemCountBadge" class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+            </div>
+            <div class="p-2 border-b border-slate-100">
+                <input type="text" id="searchBox" placeholder="Filter list..." disabled
+                       class="w-full px-3 py-1.5 border rounded text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-50">
+            </div>
+            <div id="structureList" class="flex-1 overflow-y-auto scroll-custom p-2 space-y-1">
+                <div class="flex flex-col items-center justify-center h-40 text-slate-400 text-xs">
+                    <svg class="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    Waiting for Excel file...
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area (3D Viewer Centered) -->
+        <main class="flex-1 relative bg-slate-50 flex flex-col overflow-hidden"> 
+            
+            <!-- Welcome Overlay -->
+            <div id="welcomeMsg" class="absolute inset-0 flex items-center justify-center text-slate-400 pointer-events-none z-0">
+                <div class="text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <p class="text-lg">Select a structure to view 3D model</p>
+                </div>
+            </div>
+
+            <!-- Dashboard (Hidden by default) -->
+            <div id="dashboard" class="hidden flex flex-col h-full w-full relative z-0"> 
+                
+                <!-- Header Info (Floating) -->
+                <div class="absolute top-4 left-4 right-4 bg-white/90 backdrop-blur p-4 rounded-xl shadow-md border border-slate-200 z-20 flex justify-between items-start">
+                    <div>
+                        <!-- Title from NL Column -->
+                        <h2 id="dispId" class="text-2xl font-bold text-slate-800">NucL_XXXX</h2>
+                        <p id="dispName" class="text-slate-500 text-sm font-mono mt-1">Structure Name</p>
+                        
+                        <!-- Download Options -->
+                        <div class="mt-2 flex gap-2">
+                            <!-- Local PDB Download -->
+                            <button onclick="downloadPDB()" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded hover:bg-blue-100 transition flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0l-4-4m4 4v12"></path></svg>
+                                PDB
+                            </button>
+                            <!-- Online SDF/MOL2 Download -->
+                            <button id="sdfLink" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded hover:bg-blue-100 transition flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0l-4-4m4 4v12"></path></svg>SDF</button>
+                            <button id="mol2Link" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded hover:bg-blue-100 transition flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0l-4-4m4 4v12"></path></svg>MOL2</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Viewer Controls -->
+                    <div class="flex flex-col items-end gap-2">
+                        <div class="flex bg-slate-100 p-1 rounded-lg">
+                            <button onclick="setStyle('stick')" class="px-3 py-1 text-xs font-medium rounded hover:bg-white hover:shadow-sm transition text-slate-600">Sticks</button>
+                            <button onclick="setStyle('sphere')" class="px-3 py-1 text-xs font-medium rounded hover:bg-white hover:shadow-sm transition text-slate-600">Spheres</button>
+                            <button onclick="setStyle('line')" class="px-3 py-1 text-xs font-medium rounded hover:bg-white hover:shadow-sm transition text-slate-600">Lines</button>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="toggleLabels()" id="labelBtn" class="text-xs bg-white border border-slate-300 text-slate-600 px-3 py-1 rounded hover:bg-slate-50 transition">
+                                Toggle Labels
+                            </button>
+                            <button onclick="saveImage()" class="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-100 transition flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                Save PNG
+                            </button>
+                            <button id="resetCamBtn" class="text-xs bg-white border border-slate-300 text-slate-600 px-3 py-1 rounded hover:bg-slate-50 transition">
+                                Reset Cam
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3D Viewer (Full Screen) -->
+                <div class="w-full h-full relative flex items-center justify-center bg-gray-50"> <!-- Center Align -->
+                    <div id="viewer3D" class="viewer-canvas w-full h-full"></div>
+                    
+                    <!-- Loading/Error States -->
+                    <div id="pdbLoading" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
+                        <div class="loader mb-2"></div>
+                        <span class="text-sm text-slate-500 font-medium">Loading Structure...</span>
+                    </div>
+                    <div id="pdbError" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 text-center p-6">
+                        <svg class="w-12 h-12 text-red-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        <h3 class="font-bold text-slate-700 text-lg">3D File Not Found</h3>
+                        <p class="text-sm text-slate-500 mt-2 max-w-md">
+                            Could not find <code id="pdbErrorName" class="bg-slate-100 px-1 rounded">.pdb</code> in current folder.<br>
+                            Please ensure you are running a local server (e.g., <code>python -m http.server</code>).
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- Slide-over Panel for Metadata/Analysis -->
+        <div id="slidePanel" class="slide-panel border-l border-slate-200">
+            <div class="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50">
+                <h3 class="font-bold text-slate-700">Structure Analysis</h3>
+                <button onclick="togglePanel()" class="text-slate-400 hover:text-slate-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 scroll-custom">
+                
+                <!-- Analysis Results -->
+                <div class="mb-6">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase mb-2 border-b pb-1">Calculated Analysis</h4>
+                    <div id="apiLoader" class="hidden p-4 text-center">
+                        <div class="loader mx-auto mb-2 w-4 h-4 border-2"></div>
+                        <p class="text-xs text-slate-400">Fetching data...</p>
+                    </div>
+                    <table class="w-full text-sm text-left">
+                        <tbody id="featuresTable" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                    </table>
+                </div>
+
+                <!-- Excel Metadata -->
+                <div>
+                    <h4 class="text-xs font-bold text-slate-500 uppercase mb-2 border-b pb-1">Database Metadata</h4>
+                    <table class="w-full text-sm text-left">
+                        <tbody id="metaTable" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const PATH_3D = "./"; 
+
+        // --- Global State ---
+        let dbData = [];
+        let viewer = null;
+        let currentPdbData = null; 
+        let currentItem = null;
+        let labelsVisible = false;
+        let isPanelOpen = false;
+
+        // --- DOM Elements ---
+        const els = {
+            fileInput: document.getElementById('excelFile'),
+            list: document.getElementById('structureList'),
+            countBadge: document.getElementById('itemCountBadge'),
+            search: document.getElementById('searchBox'),
+            dashboard: document.getElementById('dashboard'),
+            welcome: document.getElementById('welcomeMsg'),
+            dispId: document.getElementById('dispId'),
+            dispName: document.getElementById('dispName'),
+            viewerDiv: document.getElementById('viewer3D'),
+            pdbError: document.getElementById('pdbError'),
+            pdbErrorName: document.getElementById('pdbErrorName'),
+            pdbLoading: document.getElementById('pdbLoading'),
+            featuresTable: document.getElementById('featuresTable'), // Restored
+            metaTable: document.getElementById('metaTable'),
+            apiLoader: document.getElementById('apiLoader'), // Restored
+            resetCamBtn: document.getElementById('resetCamBtn'),
+            sdfLink: document.getElementById('sdfLink'),
+            mol2Link: document.getElementById('mol2Link'),
+            slidePanel: document.getElementById('slidePanel')
+        };
+
+        // --- Helper Functions ---
+        function safeFilename(base, ext) {
+            const name = (base || "structure").toString();
+            const safe = name.replace(/[^a-zA-Z0-9-_\.]/g, "_").replace(/_+/g, "_");
+            return safe + "." + ext;
+        }
+
+        // --- Initialization ---
+        $(document).ready(function() {
+            viewer = $3Dmol.createViewer(els.viewerDiv, {
+                backgroundColor: 'white', 
+                id: 'molviewer'
+            });
+        });
+
+        window.addEventListener('resize', () => {
+            if(viewer) viewer.resize();
+        });
+
+        els.resetCamBtn.addEventListener('click', () => {
+            if(viewer) viewer.zoomTo();
+        });
+
+        function togglePanel() {
+            isPanelOpen = !isPanelOpen;
+            if(isPanelOpen) {
+                els.slidePanel.classList.add('open');
+            } else {
+                els.slidePanel.classList.remove('open');
+            }
+        }
+
+        // --- Viewer Functions ---
+        
+        function setStyle(style) {
+            if(!viewer) return;
+            viewer.removeAllModels();
+            if(currentPdbData) {
+                viewer.addModel(currentPdbData, "pdb");
+                
+                if (style === 'stick') {
+                    viewer.setStyle({}, {stick: {radius: 0.15, colorscheme: 'Jmol'}});
+                } else if (style === 'sphere') {
+                    viewer.setStyle({}, {sphere: {scale: 0.3, colorscheme: 'Jmol'}});
+                } else if (style === 'line') {
+                    viewer.setStyle({}, {line: {colorscheme: 'Jmol'}});
+                }
+                
+                if(labelsVisible) addLabels();
+                viewer.render();
+            }
+        }
+
+        function toggleLabels() {
+            if(!viewer) return;
+            labelsVisible = !labelsVisible;
+            if(labelsVisible) {
+                addLabels();
+                document.getElementById('labelBtn').classList.add('bg-blue-50', 'text-blue-600', 'border-blue-200');
+            } else {
+                viewer.removeAllLabels();
+                document.getElementById('labelBtn').classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-200');
+            }
+            viewer.render();
+        }
+
+        function addLabels() {
+            viewer.removeAllLabels();
+            // Label all atoms
+            viewer.getModel().selectedAtoms({}).forEach(function(atom) {
+                viewer.addLabel(atom.elem + atom.serial, {
+                    position: {x: atom.x, y: atom.y, z: atom.z}, 
+                    backgroundColor: 'black', 
+                    fontColor: 'white', 
+                    fontSize: 10,
+                    backgroundOpacity: 0.7
+                });
+            });
+        }
+
+        function saveImage() {
+            if(!viewer) return;
+            let canvas = document.querySelector('#viewer3D canvas');
+            if(canvas) {
+                let link = document.createElement('a');
+                link.download = (currentItem ? currentItem.nl_id : 'structure') + '_3d.png';
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+            }
+        }
+
+        window.downloadPDB = function() {
+            if(!currentPdbData || !currentItem) {
+                alert("No structure loaded.");
+                return;
+            }
+            const blob = new Blob([currentPdbData], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentItem.pdb_file_id}.pdb`; 
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        };
+
+        // --- File Upload & Parsing ---
+        els.fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    
+                    // Robust Header Detection
+                    const rawJson = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                    let headerRowIndex = 0;
+                    for(let i=0; i<Math.min(rawJson.length, 20); i++) {
+                        const row = rawJson[i];
+                        if (row && row.some(cell => 
+                            String(cell).toLowerCase().trim() === 'pdbs' || 
+                            String(cell).trim() === 'NL' ||
+                            String(cell).toLowerCase().trim() === 'smiles'
+                        )) {
+                            headerRowIndex = i;
+                            break;
+                        }
+                    }
+
+                    const json = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex });
+                    processData(json);
+                } catch (err) {
+                    alert("Error reading database file: " + err.message);
+                    console.error(err);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // --- Data Processing ---
+        function processData(data) {
+            if(!data || data.length === 0) return;
+
+            const sample = data[0];
+            const keys = Object.keys(sample);
+            
+            // 1. Find 'pdbs' Column (Primary ID for PDB file)
+            let pdbKey = keys.find(k => k.toLowerCase().trim() === 'pdbs');
+            if (!pdbKey) {
+                alert("Critical: Could not find 'pdbs' column in Excel. Please verify headers.");
+                return;
+            }
+
+            // 2. Find 'NL' Column (For Display Title)
+            let nlKey = keys.find(k => k.trim() === 'NL');
+            if (!nlKey) nlKey = keys.find(k => String(sample[k]).includes('NucL'));
+
+            // 3. Find 'names' Column
+            let nameKey = keys.find(k => k.toLowerCase().trim() === 'names') || 
+                          keys.find(k => k.toLowerCase().includes('name'));
+
+            // 4. Find SMILES Column
+            let smilesKey = keys.find(k => k.toLowerCase().includes('smiles'));
+
+            dbData = data.map((row, i) => ({
+                pdb_file_id: row[pdbKey] ? String(row[pdbKey]).trim() : `Entry_${i}`,
+                nl_id: nlKey ? String(row[nlKey]).trim() : (row[pdbKey] || `Entry_${i}`),
+                name: nameKey ? row[nameKey] : "Unknown Name",
+                smiles: smilesKey ? row[smilesKey] : null,
+                data: row
+            }));
+
+            renderList(dbData);
+            els.search.disabled = false;
+            els.countBadge.textContent = dbData.length;
+        }
+
+        // --- Sidebar Rendering ---
+        function renderList(items) {
+            els.list.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "p-3 border-b border-slate-100 hover:bg-blue-50 cursor-pointer transition group";
+                
+                div.innerHTML = `
+                    <div class="overflow-hidden">
+                        <h4 class="text-sm font-bold text-slate-700 group-hover:text-blue-700 truncate">${item.nl_id}</h4>
+                        <p class="text-xs text-slate-400 truncate">${item.name}</p>
+                    </div>
+                `;
+                div.onclick = () => loadEntry(item);
+                fragment.appendChild(div);
+            });
+            
+            els.list.appendChild(fragment);
+        }
+
+        // --- Search Filter ---
+        els.search.addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            const filtered = dbData.filter(item => 
+                String(item.nl_id).toLowerCase().includes(val) || 
+                String(item.pdb_file_id).toLowerCase().includes(val) ||
+                String(item.name).toLowerCase().includes(val)
+            );
+            renderList(filtered);
+        });
+
+        // --- Load Detail View ---
+        function loadEntry(item) {
+            els.welcome.classList.add('hidden');
+            els.dashboard.classList.remove('hidden');
+            
+            currentItem = item;
+            labelsVisible = false;
+            document.getElementById('labelBtn').classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-200');
+
+            // Set Title to NL ID
+            els.dispId.textContent = item.nl_id;
+            els.dispName.textContent = item.name;
+
+            // Update SDF and MOL2 Download Links using PubChem/CACTUS
+            updateDownloads(item, els);
+
+            // Load 3D Structure (using pdbs column value)
+            if(viewer) viewer.clear();
+            els.pdbLoading.classList.remove('hidden');
+            els.pdbError.classList.add('hidden');
+            currentPdbData = null;
+            
+            const pdbFilename = `${item.pdb_file_id}.pdb`;
+            const pdbPath = `${PATH_3D}${pdbFilename}`;
+            els.pdbErrorName.textContent = pdbFilename;
+
+            jQuery.ajax({
+                url: pdbPath,
+                success: function(data) {
+                    currentPdbData = data;
+                    els.pdbLoading.classList.add('hidden');
+                    if(viewer) {
+                        viewer.addModel(data, "pdb");
+                        viewer.setStyle({}, { stick: { radius: 0.15, colorscheme: 'Jmol' } }); // Default to Stick
+                        viewer.zoomTo();
+                        viewer.render();
+                    }
+                },
+                error: function() {
+                    els.pdbLoading.classList.add('hidden');
+                    els.pdbError.classList.remove('hidden');
+                }
+            });
+
+            // Populate Metadata Table (Excel Data Only)
+            els.metaTable.innerHTML = '';
+            for (const [key, val] of Object.entries(item.data)) {
+                if (!val) continue;
+                const row = `
+                    <tr>
+                        <td class="px-4 py-2 font-medium w-1/3 text-xs text-slate-500 truncate uppercase border-b border-slate-50">${key}</td>
+                        <td class="px-4 py-2 text-xs text-slate-700 break-words border-b border-slate-50 font-medium">${val}</td>
+                    </tr>`;
+                els.metaTable.innerHTML += row;
+            }
+
+            // Fetch Analysis Features
+            fetchFeatures(item);
+        }
+
+        // --- Features Fetching (Extensive List) ---
+        async function fetchFeatures(item) {
+            els.featuresTable.innerHTML = '';
+            els.apiLoader.classList.remove('hidden');
+
+            let identifier = item.smiles;
+            let namespace = 'smiles';
+
+            if (!identifier) {
+                identifier = item.name;
+                namespace = 'name';
+            }
+            
+            // Skip if we only have a generic ID which won't be in PubChem
+            if (!identifier || (namespace === 'name' && identifier.includes('_'))) {
+                 els.apiLoader.classList.add('hidden');
+                 els.featuresTable.innerHTML = `<tr><td class="p-4 text-center text-slate-400 text-xs">No valid SMILES or Name found for analysis.</td></tr>`;
+                 return;
+            }
+
+            // Massive list of properties to fetch
+            const propsList = [
+                'MolecularWeight', 'MolecularFormula', 'XLogP', 'TPSA', 'IUPACName', 
+                'Charge', 'MonoisotopicMass', 'Complexity', 'HBondDonorCount', 
+                'HBondAcceptorCount', 'RotatableBondCount', 'HeavyAtomCount',
+                'AtomStereoCount', 'BondStereoCount', 'ExactMass', 'CanonicalSMILES',
+                'IsomericSMILES', 'InChI', 'InChIKey', 'Volume3D', 'Fingerprint2D'
+            ].join(',');
+
+            const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/${namespace}/${encodeURIComponent(identifier)}/property/${propsList}/JSON`;
+
+            try {
+                const response = await fetch(url);
+                if(!response.ok) throw new Error(`API Error`);
+                
+                const json = await response.json();
+                
+                if (!json.PropertyTable || !json.PropertyTable.Properties || json.PropertyTable.Properties.length === 0) {
+                     throw new Error("No data returned");
+                }
+
+                const props = json.PropertyTable.Properties[0];
+                els.apiLoader.classList.add('hidden');
+                
+                // Mapping fields for display
+                const fields = [
+                    { label: 'Mol. Weight', key: 'MolecularWeight', unit: 'g/mol' },
+                    { label: 'Exact Mass', key: 'ExactMass', unit: 'g/mol' },
+                    { label: 'Formula', key: 'MolecularFormula', unit: '' },
+                    { label: 'LogP', key: 'XLogP', unit: '' },
+                    { label: 'TPSA', key: 'TPSA', unit: 'Å²' },
+                    { label: 'Complexity', key: 'Complexity', unit: '' },
+                    { label: 'Net Charge', key: 'Charge', unit: '' },
+                    { label: 'H-Bond Donors', key: 'HBondDonorCount', unit: '' },
+                    { label: 'H-Bond Acceptors', key: 'HBondAcceptorCount', unit: '' },
+                    { label: 'Rotatable Bonds', key: 'RotatableBondCount', unit: '' },
+                    { label: 'Heavy Atoms', key: 'HeavyAtomCount', unit: '' },
+                    { label: 'Stereo Centers', key: 'AtomStereoCount', unit: '' },
+                    { label: 'Bond Stereos', key: 'BondStereoCount', unit: '' },
+                    { label: 'Canonical SMILES', key: 'CanonicalSMILES', unit: '', full: true },
+                    { label: 'InChI Key', key: 'InChIKey', unit: '', full: true },
+                    { label: 'IUPAC Name', key: 'IUPACName', unit: '', full: true }
+                ];
+
+                fields.forEach(field => {
+                    const val = props[field.key] !== undefined ? props[field.key] : 'N/A';
+                    let html = '';
+                    if (field.full) {
+                        html = `<tr><td colspan="2" class="px-4 py-2 border-b border-slate-100"><span class="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">${field.label}</span><span class="text-xs font-medium break-all text-slate-700">${val}</span></td></tr>`;
+                    } else {
+                        html = `<tr>
+                            <td class="px-4 py-2 font-medium text-slate-500 border-b border-slate-100 w-1/2 text-xs uppercase tracking-wider">${field.label}</td>
+                            <td class="px-4 py-2 text-slate-800 border-b border-slate-100 font-bold text-xs">${val} <span class="text-[9px] font-normal text-slate-400">${field.unit}</span></td>
+                        </tr>`;
+                    }
+                    els.featuresTable.innerHTML += html;
+                });
+
+            } catch (err) {
+                els.apiLoader.classList.add('hidden');
+                els.featuresTable.innerHTML = `<tr><td class="p-4 text-center text-red-400 text-xs">
+                    Analysis data unavailable.<br>
+                </td></tr>`;
+            }
+        }
+
+        // --- Update Download Links Logic ---
+        function updateDownloads(item, els) {
+            // Prepare keys and URLs
+            const hasSmiles = !!item.smiles;
+            const hasName = !!item.name;
+            const identifierForPubChem = hasSmiles ? `smiles/${encodeURIComponent(item.smiles)}` : (hasName ? `name/${encodeURIComponent(item.name)}` : null);
+            const pubchemSdfUrl = identifierForPubChem ? `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/${identifierForPubChem}/SDF` : null;
+
+            const cactusKey = hasSmiles ? `smiles/${encodeURIComponent(item.smiles)}` : (hasName ? `name/${encodeURIComponent(item.name)}` : null);
+            const cactusMol2Url = cactusKey ? `https://cactus.nci.nih.gov/chemical/structure/${cactusKey}/mol2` : null;
+
+            // SDF link handler
+            if (pubchemSdfUrl) {
+                els.sdfLink.classList.remove('hidden');
+                els.sdfLink.onclick = async (e) => {
+                    e.preventDefault();
+                    const fileName = safeFilename(item.nl_id || item.name, "sdf");
+                    try {
+                        const resp = await fetch(pubchemSdfUrl);
+                        if (!resp.ok) throw new Error(`PubChem returned ${resp.status}`);
+                        const text = await resp.text();
+                        const blob = new Blob([text], { type: "chemical/x-mdl-sdfile" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove();
+                        URL.revokeObjectURL(url);
+                    } catch (err) {
+                        console.error("Failed to download SDF:", err);
+                        alert("Unable to fetch SDF from PubChem.");
+                    }
+                };
+            } else {
+                els.sdfLink.classList.add('hidden');
+                els.sdfLink.onclick = null;
+            }
+
+            // MOL2 link handler
+            if (cactusMol2Url) {
+                els.mol2Link.classList.remove('hidden');
+                els.mol2Link.onclick = async (e) => {
+                    e.preventDefault();
+                    const fileName = safeFilename(item.nl_id || item.name, "mol2");
+                    try {
+                        const resp = await fetch(cactusMol2Url);
+                        if (resp.ok) {
+                            const text = await resp.text();
+                            if (!text || /not found/i.test(text)) throw new Error("CACTUS returned not found");
+                            const blob = new Blob([text], { type: "chemical/x-mol2" });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove();
+                            URL.revokeObjectURL(url);
+                            return;
+                        } else {
+                            throw new Error(`CACTUS returned ${resp.status}`);
+                        }
+                    } catch (err) {
+                        console.warn("Failed to fetch MOL2 from CACTUS:", err);
+                        if (pubchemSdfUrl) {
+                            const ok = confirm(" mol2 file unavailable . Would you like to download available SDF instead?");
+                            if (ok) els.sdfLink.click();
+                        } else {
+                            alert("MOL2 not available and no fallback found.");
+                        }
+                    }
+                };
+            } else {
+                els.mol2Link.classList.add('hidden');
+                els.mol2Link.onclick = null;
+            }
+        }
+
+    </script>
+</body>
+</html>
