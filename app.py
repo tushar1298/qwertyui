@@ -8,6 +8,7 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors, Crippen, rdMolDescriptors, Lipinski
 from Bio.PDB import PDBParser
 
+
 # ----------------------------------------------------
 # Page setup
 # ----------------------------------------------------
@@ -16,7 +17,9 @@ st.set_page_config(
     layout="wide",
 )
 
-# Minimal, clean CSS tweaks
+# ----------------------------------------------------
+# CSS styling (includes scrollable metadata panel)
+# ----------------------------------------------------
 st.markdown(
     """
     <style>
@@ -74,24 +77,33 @@ st.markdown(
         word-break: break-word;
         white-space: pre-wrap;
     }
+
+    /* Scrollable metadata panel */
+    .scrollable-meta {
+        max-height: 520px;
+        overflow-y: auto;
+        padding-right: 6px;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+
 # ----------------------------------------------------
-# GitHub repo settings  (PDBs are inside /PDBs/)
+# GitHub repo settings (PDBs are inside /PDBs/)
 # ----------------------------------------------------
 GITHUB_API_URL = "https://api.github.com/repos/tushar1298/qwertyui/contents/PDBs"
 GITHUB_RAW_BASE = "https://raw.githubusercontent.com/tushar1298/qwertyui/main/PDBs/"
 
-# Your metadata file in the repo (unchanged)
+# Metadata file
 METADATA_URL = (
     "https://raw.githubusercontent.com/tushar1298/qwertyui/main/NucLigs_data_2811.xlsx"
 )
 
+
 # ----------------------------------------------------
-# Load PDB list from GitHub (from /PDBs)
+# Load PDB list from GitHub (/PDBs/)
 # ----------------------------------------------------
 @st.cache_data
 def list_pdb_files():
@@ -105,21 +117,17 @@ def list_pdb_files():
     ]
     return sorted(pdb_files)
 
+
 # ----------------------------------------------------
-# Fetch PDB text from GitHub (/PDBs/<filename>)
+# Fetch PDB text from GitHub
 # ----------------------------------------------------
 def fetch_pdb_from_github(filename: str) -> str | None:
     url = f"{GITHUB_RAW_BASE}{filename}"
-    try:
-        r = requests.get(url)
-        if r.status_code == 200 and r.text.strip():
-            return r.text
-        else:
-            st.error(f"Could not fetch PDB file: {filename}")
-            return None
-    except Exception as e:
-        st.error(f"Error fetching PDB: {e}")
-        return None
+    r = requests.get(url)
+    if r.status_code == 200:
+        return r.text
+    return None
+
 
 # ----------------------------------------------------
 # 3D Viewer
@@ -132,8 +140,9 @@ def show_3d_pdb(pdb_text: str):
     html = view._make_html()
     st.components.v1.html(html, height=500)
 
+
 # ----------------------------------------------------
-# Physico-chemical property prediction (RDKit)
+# RDKit property prediction
 # ----------------------------------------------------
 def compute_physchem_from_pdb(pdb_text: str) -> dict:
     props = {}
@@ -144,7 +153,7 @@ def compute_physchem_from_pdb(pdb_text: str) -> dict:
 
         props["MolWt (RDKit)"] = round(Descriptors.MolWt(mol), 3)
         props["ExactMolWt"] = round(Descriptors.ExactMolWt(mol), 3)
-        props["LogP (Crippen)"] = round(Crippen.MolLogP(mol), 3)
+        props["Crippen LogP"] = round(Crippen.MolLogP(mol), 3)
         props["TPSA"] = round(rdMolDescriptors.CalcTPSA(mol), 3)
         props["H-bond Acceptors"] = Lipinski.NumHAcceptors(mol)
         props["H-bond Donors"] = Lipinski.NumHDonors(mol)
@@ -152,28 +161,30 @@ def compute_physchem_from_pdb(pdb_text: str) -> dict:
         props["Ring Count"] = Lipinski.RingCount(mol)
         props["Total Atoms"] = mol.GetNumAtoms()
         props["Heavy Atoms"] = mol.GetNumHeavyAtoms()
-    except Exception:
+    except:
         pass
+
     return props
 
+
 # ----------------------------------------------------
-# Extra structural info (Biopython)
+# Biopython structural features
 # ----------------------------------------------------
 def compute_biopython_features(pdb_text: str) -> dict:
     feats = {}
     try:
         parser = PDBParser(QUIET=True)
         structure = parser.get_structure("lig", io.StringIO(pdb_text))
-        num_atoms = sum(1 for _ in structure.get_atoms())
-        num_residues = sum(1 for _ in structure.get_residues())
-        feats["Bio: Atoms"] = num_atoms
-        feats["Bio: Residues"] = num_residues
-    except Exception:
+        feats["Bio: Atoms"] = sum(1 for _ in structure.get_atoms())
+        feats["Bio: Residues"] = sum(1 for _ in structure.get_residues())
+    except:
         pass
+
     return feats
 
+
 # ----------------------------------------------------
-# Load metadata from excel
+# Load Excel metadata
 # ----------------------------------------------------
 @st.cache_data
 def load_metadata():
@@ -181,193 +192,111 @@ def load_metadata():
     df.columns = [c.strip().lower() for c in df.columns]
     return df
 
+
 # ----------------------------------------------------
 # Match metadata using "pdbs" column
 # ----------------------------------------------------
 def find_metadata(metadata_df, pdb_filename):
-    """
-    Metadata identifier column: 'pdbs'
-    Values can be 'Name.pdb' or 'Name'.
-    """
-    pdb_filename = pdb_filename.strip()
-    pdb_root = pdb_filename.replace(".pdb", "").strip()
+    pdb_root = pdb_filename.replace(".pdb", "").lower()
+    metadata_df["match"] = metadata_df["pdbs"].astype(str).str.lower()
 
-    if "pdbs" not in metadata_df.columns:
-        st.error("Column 'pdbs' not found in metadata file.")
-        return None
+    match = metadata_df[metadata_df["match"] == pdb_filename.lower()]
+    if not match.empty:
+        return match
 
-    col_values = metadata_df["pdbs"].astype(str).str.lower()
-    needle_full = pdb_filename.lower()
-    needle_root = pdb_root.lower()
-
-    match = metadata_df[col_values == needle_full]
-    if match.empty:
-        match = metadata_df[col_values == needle_root]
-
+    match = metadata_df[metadata_df["match"] == pdb_root]
     return match if not match.empty else None
 
+
 # ----------------------------------------------------
-# UI Header
+# UI HEADER
 # ----------------------------------------------------
 st.markdown('<div class="title-main">Molecular Structure & Metadata Viewer</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="subtitle">'
-    "Browse molecular PDB structures stored in your GitHub repository and view the "
-    "associated metadata and predicted physico-chemical properties."
-    "</div>",
+    '<div class="subtitle">Browse molecular PDB structures + metadata + auto-computed chemical features.</div>',
     unsafe_allow_html=True,
 )
 
+
 # Load data
-try:
-    pdb_files = list_pdb_files()
-except Exception as e:
-    st.error(f"Error listing PDB files from GitHub: {e}")
-    pdb_files = []
+pdb_files = list_pdb_files()
+metadata_df = load_metadata()
 
-try:
-    metadata_df = load_metadata()
-except Exception as e:
-    st.error(f"Error loading metadata file: {e}")
-    metadata_df = pd.DataFrame()
-
-if not pdb_files:
-    st.error("No PDB files found in the GitHub repository.")
-    st.stop()
 
 # ----------------------------------------------------
-# Top control bar
+# Top selection bar
 # ----------------------------------------------------
 with st.container():
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    col_sel, col_info = st.columns([2.3, 1.2])
+    left_sel, right_info = st.columns([2.3, 1.2])
 
-    with col_sel:
-        selected_pdb = st.selectbox("Select structure", pdb_files, index=0)
+    with left_sel:
+        selected_pdb = st.selectbox("Select structure", pdb_files)
 
-    with col_info:
-        st.markdown(
-            "**Repository:** `tushar1298/qwertyui/PDBs`  \n"
-            f"**Metadata file:** `{METADATA_URL.split('/')[-1]}`"
-        )
+    with right_info:
+        st.markdown("**Repository:** `tushar1298/qwertyui/PDBs`  \n"
+                    f"**Metadata file:** `{METADATA_URL.split('/')[-1]}`")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-st.markdown("")  # spacer
 
 # ----------------------------------------------------
-# Main content
+# MAIN CONTENT
 # ----------------------------------------------------
-if selected_pdb:
-    pdb_text = fetch_pdb_from_github(selected_pdb)
+pdb_text = fetch_pdb_from_github(selected_pdb)
 
-    if pdb_text:
-        physchem_props = compute_physchem_from_pdb(pdb_text)
-        biopy_props = compute_biopython_features(pdb_text)
+if pdb_text:
+    physchem = compute_physchem_from_pdb(pdb_text)
+    biopy = compute_biopython_features(pdb_text)
 
-        left, right = st.columns([2.2, 1])
+    left, right = st.columns([2.2, 1])
 
-        # 3D viewer card
-        with left:
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.markdown(f"#### 3D Structure · `{selected_pdb}`")
-            show_3d_pdb(pdb_text)
-            st.markdown("</div>", unsafe_allow_html=True)
+    # ---------------- 3D VIEWER ----------------
+    with left:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown(f"#### 3D Structure · `{selected_pdb}`")
+        show_3d_pdb(pdb_text)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        # Metadata + properties
-        with right:
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.markdown("#### Metadata & Properties")
+    # ---------------- METADATA PANEL ----------------
+    with right:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown("#### Metadata & Properties")
 
-            if metadata_df.empty:
-                st.info("No metadata file loaded.")
-            else:
-                row = find_metadata(metadata_df, selected_pdb)
+        st.markdown('<div class="scrollable-meta">', unsafe_allow_html=True)
 
-                if row is None or row.empty:
-                    st.info("No metadata found for this entry.")
-                else:
-                    meta = row.iloc[0].to_dict()
+        row = find_metadata(metadata_df, selected_pdb)
 
-                    preferred_order = [
-                        "nl",
-                        "names",
-                        "smiles",
-                        "formula",
-                        "inchi",
-                        "inchikey",
-                        "molecule name",
-                        "molecule_name",
-                    ]
+        if row is not None:
+            data = row.iloc[0].to_dict()
+            data = {k: v for k, v in data.items() if k != "match"}
 
-                    norm_map = {k: k.lower().replace("_", " ") for k in meta.keys()}
-
-                    ordered_keys = []
-                    for pref in preferred_order:
-                        for original, norm in norm_map.items():
-                            if norm == pref and original not in ordered_keys:
-                                ordered_keys.append(original)
-
-                    for k in sorted(meta.keys()):
-                        if k not in ordered_keys:
-                            ordered_keys.append(k)
-
-                    core_norms = [p.lower().replace("_", " ") for p in preferred_order]
-
-                    # Core fields
-                    st.markdown('<div class="meta-section-title">Core fields</div>', unsafe_allow_html=True)
-                    for k in ordered_keys:
-                        if norm_map[k] in core_norms:
-                            pretty_label = norm_map[k].title()
-                            value = meta[k]
-                            st.markdown(
-                                f"""
-                                <div class="meta-item">
-                                    <div class="meta-label">{pretty_label}</div>
-                                    <div class="meta-value">{value}</div>
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
-                            )
-
-                    # Additional metadata
-                    remaining = [
-                        k for k in ordered_keys
-                        if norm_map[k] not in core_norms
-                    ]
-                    if remaining:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        st.markdown('<div class="meta-section-title">Additional fields</div>', unsafe_allow_html=True)
-                        for k in remaining:
-                            pretty_label = norm_map[k].title()
-                            value = meta[k]
-                            st.markdown(
-                                f"""
-                                <div class="meta-item">
-                                    <div class="meta-label">{pretty_label}</div>
-                                    <div class="meta-value">{value}</div>
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
-                            )
-
-            # Predicted physico-chemical properties
-            if physchem_props or biopy_props:
-                st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown('<div class="meta-section-title">Metadata</div>', unsafe_allow_html=True)
+            for k, v in data.items():
                 st.markdown(
-                    '<div class="meta-section-title">Predicted physico-chemical properties</div>',
+                    f"""
+                    <div class="meta-item">
+                        <div class="meta-label">{k.title()}</div>
+                        <div class="meta-value">{v}</div>
+                    </div>
+                    """,
                     unsafe_allow_html=True,
                 )
-                merged_props = {**physchem_props, **biopy_props}
-                for key, value in merged_props.items():
-                    st.markdown(
-                        f"""
-                        <div class="meta-item">
-                            <div class="meta-label">{key}</div>
-                            <div class="meta-value">{value}</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
 
-            st.markdown("</div>", unsafe_allow_html=True)
+        # -------- RDKit + Biopython properties --------
+        st.markdown('<br><div class="meta-section-title">Predicted physico-chemical properties</div>', unsafe_allow_html=True)
+        merged_props = {**physchem, **biopy}
+
+        for k, v in merged_props.items():
+            st.markdown(
+                f"""
+                <div class="meta-item">
+                    <div class="meta-label">{k}</div>
+                    <div class="meta-value">{v}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("</div>", unsafe_allow_html=True)  # end scrollable container
+        st.markdown("</div>", unsafe_allow_html=True)  # end card
