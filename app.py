@@ -2,11 +2,11 @@ import streamlit as st
 import requests
 import py3Dmol
 import pandas as pd
+import io
 
 from rdkit import Chem
 from rdkit.Chem import Descriptors, Crippen, rdMolDescriptors, Lipinski
 from Bio.PDB import PDBParser
-import io
 
 # ----------------------------------------------------
 # Page setup
@@ -80,18 +80,18 @@ st.markdown(
 )
 
 # ----------------------------------------------------
-# GitHub repo settings
+# GitHub repo settings  (PDBs are inside /PDBs/)
 # ----------------------------------------------------
-GITHUB_API_URL = "https://api.github.com/repos/tushar1298/qwertyui/contents/PDBs/"
-GITHUB_RAW_BASE = "https://raw.githubusercontent.com/tushar1298/qwertyui/main/"
+GITHUB_API_URL = "https://api.github.com/repos/tushar1298/qwertyui/contents/PDBs"
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/tushar1298/qwertyui/main/PDBs/"
 
-# Your metadata file in the repo
+# Your metadata file in the repo (unchanged)
 METADATA_URL = (
     "https://raw.githubusercontent.com/tushar1298/qwertyui/main/NucLigs_data_2811.xlsx"
 )
 
 # ----------------------------------------------------
-# Load PDB list from GitHub
+# Load PDB list from GitHub (from /PDBs)
 # ----------------------------------------------------
 @st.cache_data
 def list_pdb_files():
@@ -106,7 +106,7 @@ def list_pdb_files():
     return sorted(pdb_files)
 
 # ----------------------------------------------------
-# Fetch PDB text from GitHub
+# Fetch PDB text from GitHub (/PDBs/<filename>)
 # ----------------------------------------------------
 def fetch_pdb_from_github(filename: str) -> str | None:
     url = f"{GITHUB_RAW_BASE}{filename}"
@@ -153,7 +153,6 @@ def compute_physchem_from_pdb(pdb_text: str) -> dict:
         props["Total Atoms"] = mol.GetNumAtoms()
         props["Heavy Atoms"] = mol.GetNumHeavyAtoms()
     except Exception:
-        # fail silently; just return whatever we have
         pass
     return props
 
@@ -248,7 +247,7 @@ with st.container():
 
     with col_info:
         st.markdown(
-            "**Repository:** `tushar1298/qwertyui`  \n"
+            "**Repository:** `tushar1298/qwertyui/PDBs`  \n"
             f"**Metadata file:** `{METADATA_URL.split('/')[-1]}`"
         )
 
@@ -263,7 +262,6 @@ if selected_pdb:
     pdb_text = fetch_pdb_from_github(selected_pdb)
 
     if pdb_text:
-        # compute properties once
         physchem_props = compute_physchem_from_pdb(pdb_text)
         biopy_props = compute_biopython_features(pdb_text)
 
@@ -276,7 +274,7 @@ if selected_pdb:
             show_3d_pdb(pdb_text)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # Metadata card (organized vertical layout + predicted props)
+        # Metadata + properties
         with right:
             st.markdown('<div class="card">', unsafe_allow_html=True)
             st.markdown("#### Metadata & Properties")
@@ -291,7 +289,6 @@ if selected_pdb:
                 else:
                     meta = row.iloc[0].to_dict()
 
-                    # ---------- ORIGINAL METADATA ----------
                     preferred_order = [
                         "nl",
                         "names",
@@ -315,9 +312,10 @@ if selected_pdb:
                         if k not in ordered_keys:
                             ordered_keys.append(k)
 
+                    core_norms = [p.lower().replace("_", " ") for p in preferred_order]
+
                     # Core fields
                     st.markdown('<div class="meta-section-title">Core fields</div>', unsafe_allow_html=True)
-                    core_norms = [p.lower().replace("_", " ") for p in preferred_order]
                     for k in ordered_keys:
                         if norm_map[k] in core_norms:
                             pretty_label = norm_map[k].title()
@@ -353,14 +351,13 @@ if selected_pdb:
                                 unsafe_allow_html=True,
                             )
 
-            # ---------- PREDICTED PHYSICO-CHEMICAL PROPERTIES ----------
+            # Predicted physico-chemical properties
             if physchem_props or biopy_props:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown(
                     '<div class="meta-section-title">Predicted physico-chemical properties</div>',
                     unsafe_allow_html=True,
                 )
-
                 merged_props = {**physchem_props, **biopy_props}
                 for key, value in merged_props.items():
                     st.markdown(
