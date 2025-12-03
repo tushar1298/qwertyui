@@ -1,4 +1,4 @@
-python 3.4
+python3.4
 streamlit
 pandas
 psycopg2-binary
