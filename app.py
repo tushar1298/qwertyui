@@ -83,7 +83,7 @@ st.markdown(
 # GitHub repo settings
 # ----------------------------------------------------
 GITHUB_API_URL = "https://api.github.com/repos/tushar1298/qwertyui/contents"
-GITHUB_RAW_BASE = "https://raw.githubusercontent.com/tushar1298/qwertyui/main/"
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/tushar1298/qwertyui/main/PDBs"
 
 # Your metadata file in the repo
 METADATA_URL = (
