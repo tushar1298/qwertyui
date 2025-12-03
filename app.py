@@ -15,39 +15,65 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Reduce top padding */
+    /* Layout padding */
     .block-container {
         padding-top: 1.2rem;
-        padding-bottom: 2rem;
-        padding-left: 2.2rem;
-        padding-right: 2.2rem;
+        padding-bottom: 1.6rem;
+        padding-left: 2.0rem;
+        padding-right: 2.0rem;
+        max-width: 1300px;
     }
 
-    /* Card style for panels */
+    /* Cards */
     .card {
-        padding: 1.2rem 1.4rem;
-        border-radius: 0.75rem;
+        padding: 1.0rem 1.2rem;
+        border-radius: 0.8rem;
         border: 1px solid #e5e7eb;
         background-color: #ffffff;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+        box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
     }
 
-    /* Section titles */
-    h1 {
-        font-size: 2.0rem !important;
-        font-weight: 700 !important;
-        margin-bottom: 0.2rem !important;
+    h1, h2, h3, h4 {
+        letter-spacing: 0.02em;
+    }
+
+    .title-main {
+        font-size: 1.9rem;
+        font-weight: 700;
+        margin-bottom: 0.1rem;
     }
 
     .subtitle {
         font-size: 0.95rem;
         color: #6b7280;
-        margin-bottom: 1.2rem;
+        margin-bottom: 0.8rem;
     }
 
-    /* Selectbox label spacing */
-    label[data-baseweb="typography"] {
-        font-weight: 500;
+    /* Metadata styling */
+    .meta-section-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin-bottom: 0.35rem;
+        color: #4b5563;
+    }
+
+    .meta-item {
+        padding: 0.35rem 0 0.25rem 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    .meta-label {
+        font-weight: 600;
+        color: #374151;
+        font-size: 0.9rem;
+    }
+
+    .meta-value {
+        color: #111827;
+        font-size: 0.9rem;
+        line-height: 1.35rem;
+        word-break: break-word;
+        white-space: pre-wrap;
     }
     </style>
     """,
@@ -103,12 +129,12 @@ def fetch_pdb_from_github(filename: str) -> str | None:
 # 3D Viewer
 # ----------------------------------------------------
 def show_3d_pdb(pdb_text: str):
-    view = py3Dmol.view(width=640, height=520)
+    view = py3Dmol.view(width=640, height=480)
     view.addModel(pdb_text, "pdb")
     view.setStyle({"stick": {}})
     view.zoomTo()
     html = view._make_html()
-    st.components.v1.html(html, height=540)
+    st.components.v1.html(html, height=500)
 
 
 # ----------------------------------------------------
@@ -148,9 +174,9 @@ def find_metadata(metadata_df, pdb_filename):
 
 
 # ----------------------------------------------------
-# UI
+# UI Header
 # ----------------------------------------------------
-st.markdown("### Molecular Structure & Metadata Viewer")
+st.markdown('<div class="title-main">Molecular Structure & Metadata Viewer</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitle">'
     "Browse molecular PDB structures stored in your GitHub repository and view the "
@@ -176,10 +202,12 @@ if not pdb_files:
     st.error("No PDB files found in the GitHub repository.")
     st.stop()
 
+# ----------------------------------------------------
 # Top control bar
+# ----------------------------------------------------
 with st.container():
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    col_sel, col_info = st.columns([2, 1])
+    col_sel, col_info = st.columns([2.3, 1.2])
 
     with col_sel:
         selected_pdb = st.selectbox("Select structure", pdb_files, index=0)
@@ -192,8 +220,11 @@ with st.container():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-st.markdown("")  # small spacer
+st.markdown("")  # spacer
 
+# ----------------------------------------------------
+# Main content
+# ----------------------------------------------------
 if selected_pdb:
     pdb_text = fetch_pdb_from_github(selected_pdb)
 
@@ -207,7 +238,7 @@ if selected_pdb:
             show_3d_pdb(pdb_text)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # Metadata card (VERTICAL VIEW)
+        # Metadata card (organized vertical layout)
         with right:
             st.markdown('<div class="card">', unsafe_allow_html=True)
             st.markdown("#### Metadata (Details)")
@@ -220,21 +251,71 @@ if selected_pdb:
                 if row is None or row.empty:
                     st.info("No metadata found for this entry.")
                 else:
-                    meta_dict = row.iloc[0].to_dict()
+                    meta = row.iloc[0].to_dict()
 
-                    # Show each field vertically as key : value
-                    for key, value in meta_dict.items():
-                        pretty_key = str(key).replace("_", " ").title()
-                        st.markdown(
-                            f"""
-                            <div style="margin-bottom:0.5rem;">
-                                <span style="font-weight:600; color:#374151;">{pretty_key}:</span><br>
-                                <span style="color:#111827; word-wrap:break-word; font-size:0.92rem;">
-                                    {value}
-                                </span>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
+                    # Order: important fields first, then the rest
+                    preferred_order = [
+                        "nl",
+                        "names",
+                        "smiles",
+                        "formula",
+                        "inchi",
+                        "inchikey",
+                        "molecule name",
+                        "molecule_name",
+                    ]
+
+                    # Normalize keys for comparison
+                    norm_map = {k: k.lower().replace("_", " ") for k in meta.keys()}
+
+                    ordered_keys = []
+                    # add preferred in order if present
+                    for pref in preferred_order:
+                        for original, norm in norm_map.items():
+                            if norm == pref and original not in ordered_keys:
+                                ordered_keys.append(original)
+
+                    # remaining keys alphabetically
+                    for k in sorted(meta.keys()):
+                        if k not in ordered_keys:
+                            ordered_keys.append(k)
+
+                    # Show main section
+                    st.markdown('<div class="meta-section-title">Core fields</div>', unsafe_allow_html=True)
+                    for k in ordered_keys:
+                        label_norm = norm_map[k]
+                        if label_norm in [p.lower().replace("_", " ") for p in preferred_order]:
+                            pretty_label = label_norm.title()
+                            value = meta[k]
+                            st.markdown(
+                                f"""
+                                <div class="meta-item">
+                                    <div class="meta-label">{pretty_label}</div>
+                                    <div class="meta-value">{value}</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
+                    # Additional section
+                    remaining = [
+                        k for k in ordered_keys
+                        if norm_map[k] not in [p.lower().replace("_", " ") for p in preferred_order]
+                    ]
+                    if remaining:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.markdown('<div class="meta-section-title">Additional fields</div>', unsafe_allow_html=True)
+                        for k in remaining:
+                            pretty_label = norm_map[k].title()
+                            value = meta[k]
+                            st.markdown(
+                                f"""
+                                <div class="meta-item">
+                                    <div class="meta-label">{pretty_label}</div>
+                                    <div class="meta-value">{value}</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
 
             st.markdown("</div>", unsafe_allow_html=True)
