@@ -1,5 +1,6 @@
+python 3.4
 streamlit
 pandas
 psycopg2-binary
-rdkit-pypi
+rdkit
 py3Dmol
