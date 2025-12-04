@@ -3,6 +3,7 @@ import requests
 import py3Dmol
 import pandas as pd
 import io
+import zipfile
 
 # Supabase imports
 # NOTE: You must run 'pip install supabase' to use this
@@ -22,7 +23,7 @@ st.set_page_config(
 )
 
 # ----------------------------------------------------
-# CSS Styling (Enhanced + Homepage)
+# CSS Styling
 # ----------------------------------------------------
 st.markdown(
     """
@@ -226,7 +227,6 @@ def fetch_pdb_from_supabase(filename_or_id: str) -> str | None:
         data_bytes = supabase.storage.from_(BUCKET_NAME).download(filename)
         return data_bytes.decode('utf-8')
     except Exception as e:
-        # Don't show error on homepage if pre-loading
         return None
 
 def calculate_esol(mol, logp, mw, rb, aromatic_rings):
@@ -302,7 +302,8 @@ def render_homepage():
     # Centered Header
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.image(LOGO_URL, use_container_width=True)
+        # Reduced logo size using width parameter
+        st.image(LOGO_URL, width=250)
         st.markdown("<h1 style='text-align: center; color: #2c3e50; margin-bottom: 0;'>NucLigs Database</h1>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #666; font-size: 1.15rem; font-weight: 300;'>The Premier Resource for Nucleic Acid Ligand Structures</p>", unsafe_allow_html=True)
 
@@ -358,24 +359,24 @@ def render_homepage():
             st.session_state['page'] = 'database'
             st.rerun()
     
-    st.markdown("<div style='text-align: center; margin-top: 50px; color: #aaa; font-size: 0.85rem;'>© 2024 NucLigs Database Project • Version 2.0</div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; margin-top: 50px; color: #aaa; font-size: 0.85rem;'>© 2024 NucLigs Database Project • Version 2.1</div>", unsafe_allow_html=True)
 
 def render_database():
+    metadata_df = load_metadata()
+    all_nuc_ids = get_ids_from_metadata()
+
     # Sidebar
     with st.sidebar:
-        # Back Button
         if st.button("⬅️ Back to Home"):
             st.session_state['page'] = 'home'
             st.rerun()
             
         st.markdown("---")
         st.markdown("### 🔍 Finder")
-        
-        metadata_df = load_metadata()
-        all_nuc_ids = get_ids_from_metadata()
 
         search_query = st.text_input("Filter database:", placeholder="Search NucL ID...", label_visibility="collapsed")
         
+        # Filter Logic
         if search_query:
             nuc_ids = [i for i in all_nuc_ids if search_query.lower() in i.lower()]
             if not nuc_ids:
@@ -386,11 +387,116 @@ def render_database():
         else:
             nuc_ids = all_nuc_ids
 
+        # Selection
         if nuc_ids:
             selected_nuc_id = st.selectbox("Select Structure Result:", nuc_ids, index=0)
         else:
             selected_nuc_id = None
         
+        # --- BULK ACTIONS (New Feature) ---
+        if nuc_ids:
+            with st.expander("📦 Bulk Actions", expanded=False):
+                st.caption("Download multiple structures & data based on your current search.")
+                
+                # Selection for bulk
+                default_sel = nuc_ids[:10] if len(nuc_ids) < 20 else []
+                bulk_selected = st.multiselect("Select structures to download:", nuc_ids, default=default_sel)
+                
+                fmt = st.selectbox("Format", [".pdb", ".sdf", ".mol"], index=0)
+                include_preds = st.checkbox("Compute Features (Slower)", value=False, help="Runs RDKit calculation for every selected structure.")
+                
+                if st.button("Generate Download Package", use_container_width=True, disabled=len(bulk_selected)==0):
+                    status = st.status("Processing bulk download...", expanded=True)
+                    
+                    try:
+                        # 1. Prepare ZIP and CSV
+                        zip_buffer = io.BytesIO()
+                        csv_data_list = []
+                        
+                        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                            progress_bar = status.progress(0)
+                            total = len(bulk_selected)
+                            
+                            for idx, nid in enumerate(bulk_selected):
+                                # 1. Fetch Data
+                                row = metadata_df[metadata_df['nl'].astype(str) == nid]
+                                if row.empty: continue
+                                
+                                meta_dict = row.iloc[0].to_dict()
+                                pdb_fname = str(meta_dict.get('pdbs', ''))
+                                content = fetch_pdb_from_supabase(pdb_fname)
+                                
+                                if not content: continue
+                                
+                                # 2. Process Structure for Format
+                                final_content = content
+                                final_ext = fmt
+                                mol_obj = None
+                                
+                                # Convert if needed (SDF/MOL) or if Features requested
+                                if fmt != ".pdb" or include_preds:
+                                    smiles = str(meta_dict.get('smiles', ''))
+                                    try:
+                                        if smiles and smiles.lower() != 'nan':
+                                            mol_obj = Chem.MolFromSmiles(smiles)
+                                        else:
+                                            mol_obj = Chem.MolFromPDBBlock(content, sanitize=True, removeHs=False)
+                                    except:
+                                        mol_obj = None
+
+                                if fmt in [".sdf", ".mol"] and mol_obj:
+                                    final_content = Chem.MolToMolBlock(mol_obj)
+                                elif fmt in [".sdf", ".mol"] and not mol_obj:
+                                    # Fallback if conversion fails
+                                    final_content = content # Keep PDB
+                                    final_ext = ".pdb"
+
+                                # 3. Add to Zip
+                                zip_file.writestr(f"{nid}{final_ext}", final_content)
+                                
+                                # 4. Compute Features if requested
+                                if include_preds and mol_obj:
+                                    preds = compute_physchem(mol_obj)
+                                    # Remove non-serializable RDKit obj
+                                    preds.pop("_RDKitMol", None)
+                                    meta_dict.update(preds)
+                                
+                                csv_data_list.append(meta_dict)
+                                progress_bar.progress((idx + 1) / total)
+                        
+                        status.write("Compressing files...")
+                        zip_buffer.seek(0)
+                        
+                        # Generate CSV buffer
+                        csv_buffer = None
+                        if csv_data_list:
+                            df_bulk = pd.DataFrame(csv_data_list)
+                            csv_buffer = df_bulk.to_csv(index=False).encode('utf-8')
+                        
+                        status.update(label="Ready for Download!", state="complete", expanded=True)
+                        
+                        # Show Download Buttons
+                        st.download_button(
+                            label=f"📥 Download {len(bulk_selected)} Structures (.zip)",
+                            data=zip_buffer,
+                            file_name="nucligs_structures.zip",
+                            mime="application/zip",
+                            use_container_width=True
+                        )
+                        
+                        if csv_buffer:
+                            st.download_button(
+                                label="📥 Download Data Table (.csv)",
+                                data=csv_buffer,
+                                file_name="nucligs_data.csv",
+                                mime="text/csv",
+                                use_container_width=True
+                            )
+                            
+                    except Exception as e:
+                        status.update(label="Error processing download", state="error")
+                        st.error(f"An error occurred: {str(e)}")
+
         st.divider()
         st.markdown("**Viewer Settings**")
         bg_mode = st.radio("Background", ["Light", "Dark"], horizontal=True, label_visibility="collapsed")
@@ -445,7 +551,7 @@ def render_database():
             show_3d_pdb(pdb_text, bg_color)
             
             st.markdown("##### 📥 Export Data")
-            d1, d2, d3 = st.columns(3)
+            d1, d2, d3, d4 = st.columns([1, 1, 1, 1.2]) # Adjusted columns
             with d1:
                 st.download_button("Download .PDB", pdb_text, f"{selected_nuc_id}.pdb", "chemical/x-pdb", use_container_width=True)
             
@@ -457,6 +563,14 @@ def render_database():
             else:
                 with d2: st.button("SDF Unavail.", disabled=True, use_container_width=True)
                 with d3: st.button("MOL Unavail.", disabled=True, use_container_width=True)
+            
+            # Single CSV Download
+            with d4:
+                # Merge data for download
+                full_data = {**data, **physchem}
+                full_data.pop("_RDKitMol", None)
+                csv_single = pd.DataFrame([full_data]).to_csv(index=False).encode('utf-8')
+                st.download_button("📄 Data Profile (.csv)", csv_single, f"{selected_nuc_id}_data.csv", "text/csv", use_container_width=True)
 
         # 2. Analysis
         with col_preds:
