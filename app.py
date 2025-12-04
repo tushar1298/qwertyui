@@ -30,7 +30,7 @@ st.markdown(
     <style>
     /* Global Container Padding */
     .block-container {
-        padding-top: 1rem; /* Reduced from 2rem to show more of the logo */
+        padding-top: 3.5rem; /* Increased to ensure logo isn't cut off */
         padding-bottom: 3rem;
     }
 
@@ -171,19 +171,7 @@ st.markdown(
     
     /* Sidebar Logo Adjustment */
     [data-testid="stSidebar"] img {
-        margin-bottom: 0px; /* Reduced from 20px to move it up */
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    /* Adjust container padding */
-    .block-container {
-        padding-top: 1rem; /* Reduce from 2rem */
-        padding-bottom: 3rem;
-    }
-
-    /* Sidebar Logo Adjustment */
-    [data-testid="stSidebar"] img {
-        margin-bottom: 0px; /* Reduce from 20px */
+        margin-bottom: 0px; 
         border-radius: 10px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
@@ -312,13 +300,17 @@ def render_row(label, value, ref=None, help_text=None):
 # ----------------------------------------------------
 
 def render_homepage():
-    # Centered Header
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        # Reduced logo size using width parameter
-        st.image(LOGO_URL, width=250)
-        st.markdown("<h1 style='text-align: center; color: #2c3e50; margin-bottom: 0;'>NucLigs Database</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #666; font-size: 1.15rem; font-weight: 300;'>The Premier Resource for Nucleic Acid Ligand Structures</p>", unsafe_allow_html=True)
+    # Centered Header with HTML for precise control
+    st.markdown(
+        f"""
+        <div style="text-align: center; padding-top: 10px;">
+            <img src="{LOGO_URL}" width="180" style="margin-bottom: 15px;">
+            <h1 style='color: #2c3e50; margin-bottom: 0;'>NucLigs Database</h1>
+            <p style='color: #666; font-size: 1.15rem; font-weight: 300;'>The Premier Resource for Nucleic Acid Ligand Structures</p>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
     st.markdown("<br>", unsafe_allow_html=True)
 
