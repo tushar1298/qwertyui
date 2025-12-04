@@ -567,13 +567,13 @@ def render_database():
             st.markdown("#####  Export Data")
             d1, d2, d3, d4 = st.columns([1, 1, 1, 1.2]) # Adjusted columns
             with d1:
-                st.download_button("Download .PDB", pdb_text, f"{selected_nuc_id}.pdb", "chemical/x-pdb", use_container_width=True)
+                st.download_button("Download PDB", pdb_text, f"{selected_nuc_id}.pdb", "chemical/x-pdb", use_container_width=True)
             
             mol_obj = physchem.get("_RDKitMol")
             if mol_obj:
                 sdf_data = Chem.MolToMolBlock(mol_obj)
-                with d2: st.download_button("Download .SDF", sdf_data, f"{selected_nuc_id}.sdf", "chemical/x-mdl-sdfile", use_container_width=True)
-                with d3: st.download_button("Download .MOL", sdf_data, f"{selected_nuc_id}.mol", "chemical/x-mdl-molfile", use_container_width=True)
+                with d2: st.download_button("Download SDF", sdf_data, f"{selected_nuc_id}.sdf", "chemical/x-mdl-sdfile", use_container_width=True)
+                with d3: st.download_button("Download MOL2", sdf_data, f"{selected_nuc_id}.mol", "chemical/x-mdl-molfile", use_container_width=True)
             else:
                 with d2: st.button("SDF Unavail.", disabled=True, use_container_width=True)
                 with d3: st.button("MOL Unavail.", disabled=True, use_container_width=True)
