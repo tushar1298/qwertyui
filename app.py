@@ -611,9 +611,9 @@ def render_database():
                 st.markdown('</div>', unsafe_allow_html=True)
 
                 st.markdown('<div class="feature-card"><h5> Druglikeness</h5>', unsafe_allow_html=True)
-                render_row("QED Score", physchem.get("QED", "-"))
-                render_row("Est. Solubility", physchem.get("ESOL (LogS)", "-"))
-                render_row("TPSA", f"{physchem.get('TPSA', '-')} Å²")
+                render_row("Quantitative estimate of Druglikeness (QED)Score", physchem.get("QED", "-"))
+                render_row("Estimated Solubility", physchem.get("ESOL (LogS)", "-"))
+                render_row("Topological polar surface area (TPSA)", f"{physchem.get('TPSA', '-')} Å²")
                 render_row("Fraction Csp3", physchem.get("F-Csp3", "-"))
                 st.markdown('</div>', unsafe_allow_html=True)
                 
