@@ -253,6 +253,7 @@ def compute_physchem(mol) -> dict:
         charge = Chem.GetFormalCharge(mol)
         chiral_centers = len(Chem.FindMolChiralCenters(mol, includeUnassigned=True))
         aromatic_rings = Lipinski.NumAromaticRings(mol)
+        qed = QED.qed(mol)
         esol = calculate_esol(mol, logp, mw, rb, aromatic_rings)
         
         violations = 0
