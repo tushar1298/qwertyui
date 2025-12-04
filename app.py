@@ -399,7 +399,7 @@ else:
             
             with d1:
                 st.download_button(
-                    label="Download .PDB",
+                    label="Download PDB",
                     data=pdb_text,
                     file_name=f"{selected_nuc_id}.pdb",
                     mime="chemical/x-pdb",
@@ -411,7 +411,7 @@ else:
                 sdf_data = Chem.MolToMolBlock(mol_obj)
                 with d2:
                     st.download_button(
-                        label="Download .SDF",
+                        label="Download sdf",
                         data=sdf_data,
                         file_name=f"{selected_nuc_id}.sdf",
                         mime="chemical/x-mdl-sdfile",
@@ -419,7 +419,7 @@ else:
                     )
                 with d3:
                     st.download_button(
-                        label="Download .MOL",
+                        label="Download mol2",
                         data=sdf_data,
                         file_name=f"{selected_nuc_id}.mol",
                         mime="chemical/x-mdl-molfile",
