@@ -198,14 +198,28 @@ def load_metadata():
     except Exception:
         return pd.DataFrame()
 
-@st.cache_data
-def get_pdb_ids_from_metadata():
-    """Extract unique PDB IDs from the Excel file's 'pdbs' column."""
-    df = load_metadata()
-    if not df.empty and 'pdbs' in df.columns:
-        # Drop NaNs, convert to string, remove duplicates, and sort
-        return sorted(df['pdbs'].dropna().astype(str).unique().tolist())
-    return []
+@st.cache_data(ttl=600)
+def list_pdb_files():
+    """List PDB files from Supabase Storage Bucket with extended limit."""
+    if not supabase:
+        st.error("Supabase client not initialized. Check API Key.")
+        return []
+        
+    try:
+        # Fetch list of files from the bucket
+        # Set limit to 50000 to overcome default 100 item limit
+        res = supabase.storage.from_(BUCKET_NAME).list(path=None, options={'limit': 50000})
+        
+        files = []
+        if res:
+            for f in res:
+                name = f.get('name', '')
+                if name.lower().endswith(".pdb"):
+                    files.append(name)
+        return sorted(files)
+    except Exception as e:
+        st.error(f"Error fetching file list from Supabase: {e}")
+        return []
 
 def fetch_pdb_from_supabase(filename_or_id: str) -> str | None:
     """Download specific PDB file content from Supabase. Adds .pdb if missing."""
@@ -342,25 +356,27 @@ with st.sidebar:
     st.image(LOGO_URL, use_container_width=True)
     st.markdown("### NucLigs Database")
     
-    # Updated: Source of list is now the Metadata (Excel)
-    all_pdb_ids = get_pdb_ids_from_metadata()
+    # Updated: Source of list is Supabase (with limit=50000)
+    all_pdb_files = list_pdb_files()
     metadata_df = load_metadata()
 
     st.markdown("#### 🕵️ Overall Search")
     search_query = st.text_input("Filter database:", placeholder="Enter structure ID...", label_visibility="collapsed")
     
+    # Filter using Excel PDBS column identification logic
+    # We display files from bucket, but filter based on match
     if search_query:
-        pdb_ids = [p for p in all_pdb_ids if search_query.lower() in p.lower()]
-        if not pdb_ids:
+        pdb_files = [p for p in all_pdb_files if search_query.lower() in p.lower()]
+        if not pdb_files:
             st.warning("No matches found.")
-            pdb_ids = []
+            pdb_files = []
         else:
-            st.success(f"Found {len(pdb_ids)} structures")
+            st.success(f"Found {len(pdb_files)} structures")
     else:
-        pdb_ids = all_pdb_ids
+        pdb_files = all_pdb_files
 
-    if pdb_ids:
-        selected_pdb_id = st.selectbox("Select Structure Result:", pdb_ids, index=0)
+    if pdb_files:
+        selected_pdb_id = st.selectbox("Select Structure Result:", pdb_files, index=0)
     else:
         selected_pdb_id = None
     
@@ -375,14 +391,14 @@ with st.sidebar:
     if supabase is None:
         st.error("⚠️ Supabase connection failed. Check Key.")
     
-    st.caption(f"**Total Entries:** {len(all_pdb_ids)}")
-    st.caption("v1.6.0 • Powered by Supabase & RDKit")
+    st.caption(f"**Total Entries:** {len(all_pdb_files)}")
+    st.caption("v1.7.0 • Powered by Supabase & RDKit")
 
 # 2. MAIN AREA
 if not selected_pdb_id:
     st.info("👈 Please search for or select a structure from the sidebar.")
 else:
-    # Fetch from SUPABASE using the ID from Excel
+    # Fetch from SUPABASE using the filename from the list
     pdb_text = fetch_pdb_from_supabase(selected_pdb_id)
 
     if pdb_text:
@@ -403,7 +419,7 @@ else:
                 st.download_button(
                     label="Download .PDB",
                     data=pdb_text,
-                    file_name=f"{selected_pdb_id}.pdb",
+                    file_name=selected_pdb_id,
                     mime="chemical/x-pdb",
                     use_container_width=True
                 )
@@ -415,7 +431,7 @@ else:
                     st.download_button(
                         label="Download .SDF",
                         data=sdf_data,
-                        file_name=f"{selected_pdb_id}.sdf",
+                        file_name=selected_pdb_id.replace('.pdb', '.sdf'),
                         mime="chemical/x-mdl-sdfile",
                         use_container_width=True
                     )
@@ -423,7 +439,7 @@ else:
                     st.download_button(
                         label="Download .MOL",
                         data=sdf_data,
-                        file_name=f"{selected_pdb_id}.mol",
+                        file_name=selected_pdb_id.replace('.pdb', '.mol'),
                         mime="chemical/x-mdl-molfile",
                         use_container_width=True
                     )
