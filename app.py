@@ -4,6 +4,10 @@ import py3Dmol
 import pandas as pd
 import io
 
+# Supabase imports
+# NOTE: You must run 'pip install supabase' to use this
+from supabase import create_client, Client
+
 from rdkit import Chem
 from rdkit.Chem import Descriptors, Crippen, rdMolDescriptors, Lipinski, QED
 from Bio.PDB import PDBParser
@@ -124,40 +128,74 @@ st.markdown(
 )
 
 # ----------------------------------------------------
-# Constants & URLs
+# Supabase Configuration
 # ----------------------------------------------------
-GITHUB_API_URL = "https://api.github.com/repos/tushar1298/qwertyui/contents/PDBs"
-GITHUB_RAW_BASE = "https://raw.githubusercontent.com/tushar1298/qwertyui/main/PDBs/"
+# Derived from your DB host: db.heuzgnhlrumyfcfigoon.supabase.co
+SUPABASE_URL = "https://heuzgnhlrumyfcfigoon.supabase.co"
+
+# ⚠️ PLACEHOLDER: Enter your Supabase 'anon' public key here
+# You can find this in Supabase Dashboard -> Project Settings -> API
+SUPABASE_KEY = sb_secret_UuFsAopmAmHrdvHf6-mGBg_X0QNgMF5
+
+BUCKET_NAME = "NucLigs_PDBs"
+
+# Initialize Client
+# We use st.cache_resource to initialize the connection once
+@st.cache_resource
+def init_supabase():
+    try:
+        return create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        return None
+
+supabase = init_supabase()
+
+# ----------------------------------------------------
+# External URLs (Metadata/Logo)
+# ----------------------------------------------------
 METADATA_URL = "https://raw.githubusercontent.com/tushar1298/qwertyui/main/NucLigs_data_2811.xlsx"
 LOGO_URL = "https://raw.githubusercontent.com/tushar1298/qwertyui/main/NucLigs.png"
 
 # ----------------------------------------------------
 # Data Fetching Functions
 # ----------------------------------------------------
-@st.cache_data
+@st.cache_data(ttl=600)
 def list_pdb_files():
+    """List PDB files from Supabase Storage Bucket"""
+    if not supabase:
+        st.error("Supabase client not initialized. Check API Key.")
+        return []
+        
     try:
-        r = requests.get(GITHUB_API_URL)
-        r.raise_for_status()
-        files = r.json()
-        pdb_files = [
-            f["name"]
-            for f in files
-            if isinstance(f, dict) and f.get("name", "").lower().endswith(".pdb")
-        ]
-        return sorted(pdb_files)
+        # Fetch list of files from the bucket
+        # Note: Depending on folder structure, you might need to adjust path
+        res = supabase.storage.from_(BUCKET_NAME).list()
+        
+        # 'res' is typically a list of dicts/objects
+        files = []
+        if res:
+            for f in res:
+                # Supabase storage list returns objects with 'name'
+                name = f.get('name', '')
+                if name.lower().endswith(".pdb"):
+                    files.append(name)
+        return sorted(files)
     except Exception as e:
-        st.error(f"Error fetching file list: {e}")
+        st.error(f"Error fetching file list from Supabase: {e}")
         return []
 
-def fetch_pdb_from_github(filename: str) -> str | None:
-    try:
-        url = f"{GITHUB_RAW_BASE}{filename}"
-        r = requests.get(url)
-        if r.status_code == 200 and r.text.strip():
-            return r.text
+def fetch_pdb_from_supabase(filename: str) -> str | None:
+    """Download specific PDB file content from Supabase"""
+    if not supabase:
         return None
-    except:
+        
+    try:
+        # Download returns bytes
+        data_bytes = supabase.storage.from_(BUCKET_NAME).download(filename)
+        # Decode bytes to string for Py3Dmol and RDKit
+        return data_bytes.decode('utf-8')
+    except Exception as e:
+        st.error(f"Error downloading {filename}: {e}")
         return None
 
 @st.cache_data
@@ -339,14 +377,19 @@ with st.sidebar:
     bg_color = "white" if bg_mode == "Light" else "#1e1e1e"
 
     st.divider()
+    
+    if supabase is None:
+        st.error("⚠️ Supabase connection failed. Check Key.")
+    
     st.caption(f"**Total Entries:** {len(all_pdb_files)}")
-    st.caption("v1.3.0 • Powered by RDKit & Py3Dmol")
+    st.caption("v1.4.0 • Powered by Supabase & RDKit")
 
 # 2. MAIN AREA
 if not selected_pdb:
     st.info("👈 Please search for or select a structure from the sidebar.")
 else:
-    pdb_text = fetch_pdb_from_github(selected_pdb)
+    # Fetch from SUPABASE instead of GitHub
+    pdb_text = fetch_pdb_from_supabase(selected_pdb)
 
     if pdb_text:
         # Compute properties
