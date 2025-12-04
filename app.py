@@ -187,37 +187,6 @@ LOGO_URL = "https://raw.githubusercontent.com/tushar1298/qwertyui/main/NucLigs.p
 # ----------------------------------------------------
 # Data Fetching Functions
 # ----------------------------------------------------
-@st.cache_data(ttl=600)
-def list_pdb_files():
-    """List PDB files from Supabase Storage Bucket"""
-    if not supabase:
-        st.error("Supabase client not initialized. Check API Key.")
-        return []
-        
-    try:
-        res = supabase.storage.from_(BUCKET_NAME).list()
-        files = []
-        if res:
-            for f in res:
-                name = f.get('name', '')
-                if name.lower().endswith(".pdb"):
-                    files.append(name)
-        return sorted(files)
-    except Exception as e:
-        st.error(f"Error fetching file list from Supabase: {e}")
-        return []
-
-def fetch_pdb_from_supabase(filename: str) -> str | None:
-    """Download specific PDB file content from Supabase"""
-    if not supabase:
-        return None
-        
-    try:
-        data_bytes = supabase.storage.from_(BUCKET_NAME).download(filename)
-        return data_bytes.decode('utf-8')
-    except Exception as e:
-        st.error(f"Error downloading {filename}: {e}")
-        return None
 
 @st.cache_data
 def load_metadata():
@@ -228,6 +197,31 @@ def load_metadata():
         return df
     except Exception:
         return pd.DataFrame()
+
+@st.cache_data
+def get_pdb_ids_from_metadata():
+    """Extract unique PDB IDs from the Excel file's 'pdbs' column."""
+    df = load_metadata()
+    if not df.empty and 'pdbs' in df.columns:
+        # Drop NaNs, convert to string, remove duplicates, and sort
+        return sorted(df['pdbs'].dropna().astype(str).unique().tolist())
+    return []
+
+def fetch_pdb_from_supabase(filename_or_id: str) -> str | None:
+    """Download specific PDB file content from Supabase. Adds .pdb if missing."""
+    if not supabase:
+        return None
+        
+    try:
+        # Ensure we have the extension for the file path
+        filename = filename_or_id if filename_or_id.lower().endswith(".pdb") else f"{filename_or_id}.pdb"
+        
+        data_bytes = supabase.storage.from_(BUCKET_NAME).download(filename)
+        return data_bytes.decode('utf-8')
+    except Exception as e:
+        # Optional: Try one more time without modifying extension or lowercase if you expect inconsistencies
+        st.error(f"Error downloading {filename_or_id}: {e}")
+        return None
 
 # ----------------------------------------------------
 # Computation Functions
@@ -348,26 +342,27 @@ with st.sidebar:
     st.image(LOGO_URL, use_container_width=True)
     st.markdown("### NucLigs Database")
     
-    all_pdb_files = list_pdb_files()
+    # Updated: Source of list is now the Metadata (Excel)
+    all_pdb_ids = get_pdb_ids_from_metadata()
     metadata_df = load_metadata()
 
     st.markdown("#### 🕵️ Overall Search")
     search_query = st.text_input("Filter database:", placeholder="Enter structure ID...", label_visibility="collapsed")
     
     if search_query:
-        pdb_files = [p for p in all_pdb_files if search_query.lower() in p.lower()]
-        if not pdb_files:
+        pdb_ids = [p for p in all_pdb_ids if search_query.lower() in p.lower()]
+        if not pdb_ids:
             st.warning("No matches found.")
-            pdb_files = []
+            pdb_ids = []
         else:
-            st.success(f"Found {len(pdb_files)} structures")
+            st.success(f"Found {len(pdb_ids)} structures")
     else:
-        pdb_files = all_pdb_files
+        pdb_ids = all_pdb_ids
 
-    if pdb_files:
-        selected_pdb = st.selectbox("Select Structure Result:", pdb_files, index=0)
+    if pdb_ids:
+        selected_pdb_id = st.selectbox("Select Structure Result:", pdb_ids, index=0)
     else:
-        selected_pdb = None
+        selected_pdb_id = None
     
     st.divider()
     
@@ -380,14 +375,15 @@ with st.sidebar:
     if supabase is None:
         st.error("⚠️ Supabase connection failed. Check Key.")
     
-    st.caption(f"**Total Entries:** {len(all_pdb_files)}")
-    st.caption("v1.5.0 • Powered by Supabase & RDKit")
+    st.caption(f"**Total Entries:** {len(all_pdb_ids)}")
+    st.caption("v1.6.0 • Powered by Supabase & RDKit")
 
 # 2. MAIN AREA
-if not selected_pdb:
+if not selected_pdb_id:
     st.info("👈 Please search for or select a structure from the sidebar.")
 else:
-    pdb_text = fetch_pdb_from_supabase(selected_pdb)
+    # Fetch from SUPABASE using the ID from Excel
+    pdb_text = fetch_pdb_from_supabase(selected_pdb_id)
 
     if pdb_text:
         physchem = compute_physchem_from_pdb(pdb_text)
@@ -397,7 +393,7 @@ else:
 
         # --- COLUMN 1: 3D VIEWER & DOWNLOADS ---
         with col_viewer:
-            st.subheader(f"3D Visualization: {selected_pdb}")
+            st.subheader(f"3D Visualization: {selected_pdb_id}")
             show_3d_pdb(pdb_text, bg_color)
             
             st.markdown("##### 📥 Export Data")
@@ -407,7 +403,7 @@ else:
                 st.download_button(
                     label="Download .PDB",
                     data=pdb_text,
-                    file_name=selected_pdb,
+                    file_name=f"{selected_pdb_id}.pdb",
                     mime="chemical/x-pdb",
                     use_container_width=True
                 )
@@ -419,7 +415,7 @@ else:
                     st.download_button(
                         label="Download .SDF",
                         data=sdf_data,
-                        file_name=selected_pdb.replace('.pdb', '.sdf'),
+                        file_name=f"{selected_pdb_id}.sdf",
                         mime="chemical/x-mdl-sdfile",
                         use_container_width=True
                     )
@@ -427,7 +423,7 @@ else:
                     st.download_button(
                         label="Download .MOL",
                         data=sdf_data,
-                        file_name=selected_pdb.replace('.pdb', '.mol'),
+                        file_name=f"{selected_pdb_id}.mol",
                         mime="chemical/x-mdl-molfile",
                         use_container_width=True
                     )
@@ -498,7 +494,7 @@ else:
             st.subheader("Metadata Record")
             st.markdown('<div class="meta-scroll">', unsafe_allow_html=True)
             
-            row = find_metadata(metadata_df, selected_pdb)
+            row = find_metadata(metadata_df, selected_pdb_id)
 
             if row is not None and not row.empty:
                 data = row.iloc[0].to_dict()
