@@ -252,7 +252,7 @@ def compute_physchem(mol) -> dict:
         formula = rdMolDescriptors.CalcMolFormula(mol)
         charge = Chem.GetFormalCharge(mol)
         chiral_centers = len(Chem.FindMolChiralCenters(mol, includeUnassigned=True))
-        qed = QED.qed(mol)
+         = .(mol)
         aromatic_rings = Lipinski.NumAromaticRings(mol)
         esol = calculate_esol(mol, logp, mw, rb, aromatic_rings)
         
@@ -268,7 +268,7 @@ def compute_physchem(mol) -> dict:
         props["Mol Wt"] = f"{mw:.2f}"
         props["LogP"] = f"{logp:.2f}"
         props["TPSA"] = f"{rdMolDescriptors.CalcTPSA(mol):.2f}"
-        props["QED"] = f"{qed:.3f}"
+        props[""] = f"{:.3f}"
         props["ESOL (LogS)"] = f"{esol:.2f}" if esol else "N/A"
         props["H-Acc"] = h_acc
         props["H-Don"] = h_don
@@ -611,7 +611,7 @@ def render_database():
                 st.markdown('</div>', unsafe_allow_html=True)
 
                 st.markdown('<div class="feature-card"><h5> Druglikeness</h5>', unsafe_allow_html=True)
-                render_row("Quantitative estimate of Druglikeness (QED)Score", physchem.get("QED", "-"))
+                render_row("Quantitative estimate of Druglikeness (QED) Score", physchem.get("QED", "-"))
                 render_row("Estimated Solubility", physchem.get("ESOL (LogS)", "-"))
                 render_row("Topological polar surface area (TPSA)", f"{physchem.get('TPSA', '-')} Å²")
                 render_row("Fraction Csp3", physchem.get("F-Csp3", "-"))
