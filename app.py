@@ -129,42 +129,30 @@ st.markdown(
 
     /* Homepage Cards */
     .home-card {
-        padding: 20px;
+        padding: 25px;
         border-radius: 12px;
-        border: 1px solid #eee;
+        border: 1px solid #eef2f5;
         background-color: white;
-        text-align: center;
-        transition: transform 0.2s;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        text-align: left;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
         height: 100%;
     }
     .home-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 12px 20px rgba(0,0,0,0.08);
         border-color: #4CAF50;
     }
     .home-card h3 {
         color: #2c3e50;
-        font-size: 1.1rem;
-        margin-bottom: 10px;
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+        font-weight: 700;
     }
     .home-card p {
-        color: #666;
-        font-size: 0.9rem;
-        margin-bottom: 15px;
-    }
-    .home-card a {
-        text-decoration: none;
-        color: #4CAF50;
-        font-weight: bold;
-        border: 1px solid #4CAF50;
-        padding: 5px 15px;
-        border-radius: 20px;
-        transition: background 0.2s;
-    }
-    .home-card a:hover {
-        background-color: #4CAF50;
-        color: white;
+        color: #555;
+        font-size: 0.95rem;
+        line-height: 1.6;
     }
     
     /* Buttons */
@@ -172,6 +160,8 @@ st.markdown(
         width: 100%;
         border-radius: 8px;
         font-weight: 600;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
     }
     
     /* Badge Styles */
@@ -313,49 +303,62 @@ def render_homepage():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.image(LOGO_URL, use_container_width=True)
-        st.markdown("<h1 style='text-align: center; color: #2c3e50;'>NucLigs Database</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #666; font-size: 1.1rem;'>Comprehensive structural and physico-chemical repository for Nucleic Acid Ligands.</p>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: #2c3e50; margin-bottom: 0;'>NucLigs Database</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #666; font-size: 1.15rem; font-weight: 300;'>The Premier Resource for Nucleic Acid Ligand Structures</p>", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # About Section
+    st.markdown("""
+    <div style='background-color: #f8f9fa; padding: 30px; border-radius: 12px; border-left: 5px solid #4CAF50; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 40px;'>
+        <h3 style='color: #2c3e50; margin-top: 0;'>About the Database</h3>
+        <p style='color: #444; font-size: 1.05rem; line-height: 1.6;'>
+            The <b>NucLigs Database</b> is a specialized repository designed to facilitate research in the field of nucleic acid targeting. 
+            It aggregates structural data of small molecule ligands bound to DNA and RNA targets, providing a unified platform for detailed analysis and visualization.
+        </p>
+        <p style='color: #444; font-size: 1.05rem; line-height: 1.6; margin-bottom: 0;'>
+            Whether you are involved in <b>rational drug design</b>, <b>structural biology</b>, or <b>cheminformatics</b>, NucLigs offers robust tools to explore the physico-chemical landscape of nucleic acid interactions, supporting the discovery of next-generation therapeutics.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Feature Cards
+    f1, f2, f3 = st.columns(3)
+    
+    with f1:
+        st.markdown("""
+        <div class="home-card">
+            <h3>🧊 3D Visualization</h3>
+            <p>Interactive, high-fidelity rendering of ligand-target complexes using Py3Dmol. Inspect binding modes, molecular surfaces, and structural conformations in real-time directly within your browser.</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        st.markdown("---")
+    with f2:
+        st.markdown("""
+        <div class="home-card">
+            <h3>⚗️ Chemical Profiling</h3>
+            <p>Automated calculation of critical molecular descriptors. Access data on Molecular Weight, LogP, TPSA, and Lipinski's Rule of 5 compliance powered by the RDKit cheminformatics engine.</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Primary Action
-        if st.button("🚀 Enter Database", type="primary", use_container_width=True):
+    with f3:
+        st.markdown("""
+        <div class="home-card">
+            <h3>📂 Data Accessibility</h3>
+            <p>Seamlessly retrieve standardized structural data. Export ligands and complexes in industry-standard formats (PDB, SDF, MOL) to integrate directly with your local modeling workflows.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    st.markdown("<br><br>", unsafe_allow_html=True)
+
+    # Primary Action
+    _, btn_col, _ = st.columns([1.5, 1, 1.5])
+    with btn_col:
+        if st.button("🚀 Explore the Collection", type="primary", use_container_width=True):
             st.session_state['page'] = 'database'
             st.rerun()
-
-    st.markdown("<br><br>", unsafe_allow_html=True)
     
-    # External Databases Section
-    st.markdown("<h3 style='text-align: center; margin-bottom: 30px;'>🔗 Other Resources</h3>", unsafe_allow_html=True)
-    
-    dc1, dc2, dc3 = st.columns(3)
-    
-    with dc1:
-        st.markdown("""
-        <div class="home-card">
-            <h3>🧬 NDB</h3>
-            <p>Nucleic Acid Database (NDB) containing information about experimentally-determined nucleic acids.</p>
-            <a href="http://ndbserver.rutgers.edu/" target="_blank">Visit Website</a>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with dc2:
-        st.markdown("""
-        <div class="home-card">
-            <h3>💊 DrugBank</h3>
-            <p>Comprehensive molecular information about drugs and drug targets.</p>
-            <a href="https://go.drugbank.com/" target="_blank">Visit Website</a>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with dc3:
-        st.markdown("""
-        <div class="home-card">
-            <h3>🦠 MODOMICS</h3>
-            <p>A database of RNA modification pathways and sequences.</p>
-            <a href="https://genesilico.pl/modomics/" target="_blank">Visit Website</a>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; margin-top: 50px; color: #aaa; font-size: 0.85rem;'>© 2024 NucLigs Database Project • Version 2.0</div>", unsafe_allow_html=True)
 
 def render_database():
     # Sidebar
