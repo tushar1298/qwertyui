@@ -378,7 +378,7 @@ def render_homepage():
         st.markdown("""
         <div class="home-card">
             <h3> Data Accessibility</h3>
-            <p>Seamlessly retrieve standardized structural data. Export ligands and complexes in industry-standard formats (PDB, SDF, MOL) to integrate directly with your local modeling workflows.</p>
+            <p>Seamlessly retrieve standardized structural data. Export ligands and complexes in industry-standard formats (PDB, SDF, MOL2) to integrate directly with your local modeling workflows.</p>
         </div>
         """, unsafe_allow_html=True)
         
