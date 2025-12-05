@@ -369,7 +369,7 @@ def render_homepage():
     with f2:
         st.markdown("""
         <div class="home-card">
-            <h3>⚗️ Chemical Profiling</h3>
+            <h3> Chemical Profiling</h3>
             <p>Automated calculation of critical molecular descriptors. Access data on Molecular Weight, LogP, TPSA, and Lipinski's Rule of 5 compliance powered by the RDKit cheminformatics engine.</p>
         </div>
         """, unsafe_allow_html=True)
@@ -631,7 +631,7 @@ def render_database():
                     badge_class = "badge-pass" if violations == 0 else "badge-fail"
                     badge_text = "PASS (0 Violations)" if violations == 0 else f"FAIL ({violations} Violations)"
                     
-                    st.markdown(f'<div class="feature-card"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom: 2px solid #f0f2f6; padding-bottom:8px;"><h5 style="margin:0; border:none; padding:0;">⚖️ Rule of 5</h5><span class="{badge_class}">{badge_text}</span></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="feature-card"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom: 2px solid #f0f2f6; padding-bottom:8px;"><h5 style="margin:0; border:none; padding:0;"> Rule of 5</h5><span class="{badge_class}">{badge_text}</span></div>', unsafe_allow_html=True)
                     render_row("LogP", physchem.get("LogP", "-"), "≤ 5")
                     render_row("H-Donors", physchem.get("H-Don", "-"), "≤ 5")
                     render_row("H-Acceptors", physchem.get("H-Acc", "-"), "≤ 10")
