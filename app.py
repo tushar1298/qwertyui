@@ -430,7 +430,9 @@ def render_database():
         search_query = st.text_input("Filter database:", placeholder="Search NucL ID or Name...", label_visibility="collapsed")
         
         # Filter Logic
+        is_searching = False
         if search_query:
+            is_searching = True
             # Filter matches from both 'nl' and 'names' columns
             q = search_query.lower()
             mask = (
@@ -448,13 +450,16 @@ def render_database():
         else:
             nuc_ids = all_nuc_ids
 
-        # Selection with format_func to show names
+        # Selection with dynamic format_func
         if nuc_ids:
+            # If searching, show Name + ID. If browsing (no search), show just ID.
+            format_strategy = (lambda x: id_map.get(x, x)) if is_searching else (lambda x: x)
+            
             selected_nuc_id = st.selectbox(
                 "Select Structure Result:", 
                 nuc_ids, 
                 index=0,
-                format_func=lambda x: id_map.get(x, x) # Shows Name (ID)
+                format_func=format_strategy
             )
         else:
             selected_nuc_id = None
@@ -474,7 +479,7 @@ def render_database():
                         "Select structures:", 
                         nuc_ids, 
                         default=default_sel,
-                        format_func=lambda x: id_map.get(x, x)
+                        format_func=format_strategy # Use same format as dropdown
                     )
                 else:
                     # All results
