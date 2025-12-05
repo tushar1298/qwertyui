@@ -30,7 +30,7 @@ st.markdown(
     <style>
     /* Global Container Padding */
     .block-container {
-        padding-top: 3.5rem;
+        padding-top: 3.5rem; /* Increased to ensure logo isn't cut off */
         padding-bottom: 3rem;
     }
 
@@ -55,7 +55,7 @@ st.markdown(
         background: #a8a8a8;
     }
 
-    /* Section Cards */
+    /* Section Cards in DB View */
     .feature-card {
         background-color: #ffffff;
         border: 1px solid #e0e0e0;
@@ -108,18 +108,25 @@ st.markdown(
         display: flex;
         justify-content: space-between;
         margin-bottom: 8px;
-        align-items: center;
+        align-items: flex-start; /* Align to top for multi-line text */
     }
     .data-label {
         font-size: 0.85rem;
         color: #666;
-        font-weight: 500;
+        font-weight: 600;
+        min-width: 140px; /* Force spacing for Label */
+        flex-shrink: 0;   /* Prevent label from squishing */
+        margin-right: 15px;
+        padding-top: 2px;
     }
     .data-value {
         font-family: 'Source Code Pro', monospace;
         font-size: 0.9rem;
         color: #222;
         font-weight: 600;
+        text-align: right; /* Push values to the right for cleaner look */
+        word-break: break-word; /* Wrap long text properly */
+        flex-grow: 1;
     }
     .reference-text {
         font-size: 0.75rem;
@@ -224,7 +231,7 @@ LOGO_URL = "https://raw.githubusercontent.com/tushar1298/qwertyui/main/NucLigs.p
 # ----------------------------------------------------
 # Data & Compute Functions
 # ----------------------------------------------------
-@st.cache_data
+@st.cache_data(ttl=0) # Set TTL to 0 to prevent caching stale data
 def load_metadata():
     try:
         df = pd.read_excel(METADATA_URL)
@@ -233,7 +240,7 @@ def load_metadata():
     except Exception:
         return pd.DataFrame()
 
-@st.cache_data
+@st.cache_data(ttl=0) # Set TTL to 0 to prevent caching stale data
 def get_ids_from_metadata():
     df = load_metadata()
     if not df.empty and 'nl' in df.columns:
