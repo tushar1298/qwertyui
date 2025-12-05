@@ -30,7 +30,7 @@ st.markdown(
     <style>
     /* Global Container Padding */
     .block-container {
-        padding-top: 3.5rem; /* Increased to ensure logo isn't cut off */
+        padding-top: 3.5rem;
         padding-bottom: 3rem;
     }
 
@@ -55,7 +55,7 @@ st.markdown(
         background: #a8a8a8;
     }
 
-    /* Section Cards in DB View */
+    /* Section Cards */
     .feature-card {
         background-color: #ffffff;
         border: 1px solid #e0e0e0;
@@ -165,6 +165,25 @@ st.markdown(
         padding-bottom: 0.5rem;
     }
     
+    /* Tabs Styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        color: #495057;
+        font-weight: 600;
+        padding: 0 20px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+        border-bottom: 2px solid #2e7d32;
+    }
+    
     /* Badge Styles */
     .badge-pass { background-color: #d4edda; color: #155724; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
     .badge-fail { background-color: #f8d7da; color: #721c24; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
@@ -252,8 +271,8 @@ def compute_physchem(mol) -> dict:
         formula = rdMolDescriptors.CalcMolFormula(mol)
         charge = Chem.GetFormalCharge(mol)
         chiral_centers = len(Chem.FindMolChiralCenters(mol, includeUnassigned=True))
-        aromatic_rings = Lipinski.NumAromaticRings(mol)
         qed = QED.qed(mol)
+        aromatic_rings = Lipinski.NumAromaticRings(mol)
         esol = calculate_esol(mol, logp, mw, rb, aromatic_rings)
         
         violations = 0
@@ -306,7 +325,7 @@ def render_homepage():
         <div style="text-align: center; padding-top: 10px;">
             <img src="{LOGO_URL}" width="180" style="margin-bottom: 15px;">
             <h1 style='color: #2c3e50; margin-bottom: 0;'>NucLigs Database</h1>
-            <p style='color: #666; font-size: 1.15rem; font-weight: 300;'>The Premier Resource for Nucleotide and Nucleoside analog Structures</p>
+            <p style='color: #666; font-size: 1.15rem; font-weight: 300;'>The Premier Resource for Nucleic Acid Ligand Structures</p>
         </div>
         """, 
         unsafe_allow_html=True
@@ -335,7 +354,7 @@ def render_homepage():
     with f1:
         st.markdown("""
         <div class="home-card">
-            <h3> 3D Visualization</h3>
+            <h3>🧊 3D Visualization</h3>
             <p>Interactive, high-fidelity rendering of ligand-target complexes using Py3Dmol. Inspect binding modes, molecular surfaces, and structural conformations in real-time directly within your browser.</p>
         </div>
         """, unsafe_allow_html=True)
@@ -343,7 +362,7 @@ def render_homepage():
     with f2:
         st.markdown("""
         <div class="home-card">
-            <h3> Chemical Profiling</h3>
+            <h3>⚗️ Chemical Profiling</h3>
             <p>Automated calculation of critical molecular descriptors. Access data on Molecular Weight, LogP, TPSA, and Lipinski's Rule of 5 compliance powered by the RDKit cheminformatics engine.</p>
         </div>
         """, unsafe_allow_html=True)
@@ -351,7 +370,7 @@ def render_homepage():
     with f3:
         st.markdown("""
         <div class="home-card">
-            <h3> Data Accessibility</h3>
+            <h3>📂 Data Accessibility</h3>
             <p>Seamlessly retrieve standardized structural data. Export ligands and complexes in industry-standard formats (PDB, SDF, MOL) to integrate directly with your local modeling workflows.</p>
         </div>
         """, unsafe_allow_html=True)
@@ -361,7 +380,7 @@ def render_homepage():
     # Primary Action
     _, btn_col, _ = st.columns([1.5, 1, 1.5])
     with btn_col:
-        if st.button(" Explore the Collection", type="primary", use_container_width=True):
+        if st.button("🚀 Explore the Collection", type="primary", use_container_width=True):
             st.session_state['page'] = 'database'
             st.rerun()
     
@@ -378,7 +397,7 @@ def render_database():
             st.rerun()
             
         st.markdown("---")
-        st.markdown("###  Finder")
+        st.markdown("### 🔍 Finder")
 
         search_query = st.text_input("Filter database:", placeholder="Search NucL ID or Name...", label_visibility="collapsed")
         
@@ -409,7 +428,7 @@ def render_database():
         
         # --- BULK ACTIONS (New Feature) ---
         if nuc_ids:
-            with st.expander(" Bulk Actions", expanded=False):
+            with st.expander("📦 Bulk Actions", expanded=False):
                 st.caption("Download multiple structures & data based on your current search.")
                 
                 # Selection for bulk
@@ -491,7 +510,7 @@ def render_database():
                         
                         # Show Download Buttons
                         st.download_button(
-                            label=f" Download {len(bulk_selected)} Structures (.zip)",
+                            label=f"📥 Download {len(bulk_selected)} Structures (.zip)",
                             data=zip_buffer,
                             file_name="nucligs_structures.zip",
                             mime="application/zip",
@@ -500,7 +519,7 @@ def render_database():
                         
                         if csv_buffer:
                             st.download_button(
-                                label=" Download Data Table (.csv)",
+                                label="📥 Download Data Table (.csv)",
                                 data=csv_buffer,
                                 file_name="nucligs_data.csv",
                                 mime="text/csv",
@@ -520,7 +539,7 @@ def render_database():
 
     # Main Content
     if not selected_nuc_id:
-        st.info(" Please search for or select a structure from the sidebar.")
+        st.info("👈 Please search for or select a structure from the sidebar.")
         return
 
     # Resolve Data
@@ -556,100 +575,102 @@ def render_database():
 
         physchem = compute_physchem(mol)
         
-        # UI Columns
-        col_viewer, col_preds, col_meta = st.columns([2.2, 0.9, 0.9])
+        # New Layout: Two Columns (Viewer vs Tabs)
+        col_left, col_right = st.columns([1.5, 1.0])
 
-        # 1. Viewer
-        with col_viewer:
+        # --- LEFT COLUMN: 3D VIEWER ---
+        with col_left:
             st.subheader(f"3D Visualization: {selected_nuc_id}")
             show_3d_pdb(pdb_text, bg_color)
             
-            st.markdown("#####  Export Data")
-            d1, d2, d3, d4 = st.columns([1, 1, 1, 1.2]) # Adjusted columns
+            st.markdown("##### 📥 Export Data")
+            d1, d2, d3, d4 = st.columns([1, 1, 1, 1.2]) 
             with d1:
-                st.download_button("Download PDB", pdb_text, f"{selected_nuc_id}.pdb", "chemical/x-pdb", use_container_width=True)
+                st.download_button("Download .PDB", pdb_text, f"{selected_nuc_id}.pdb", "chemical/x-pdb", use_container_width=True)
             
             mol_obj = physchem.get("_RDKitMol")
             if mol_obj:
                 sdf_data = Chem.MolToMolBlock(mol_obj)
-                with d2: st.download_button("Download SDF", sdf_data, f"{selected_nuc_id}.sdf", "chemical/x-mdl-sdfile", use_container_width=True)
-                with d3: st.download_button("Download MOL2", sdf_data, f"{selected_nuc_id}.mol", "chemical/x-mdl-molfile", use_container_width=True)
+                with d2: st.download_button("Download .SDF", sdf_data, f"{selected_nuc_id}.sdf", "chemical/x-mdl-sdfile", use_container_width=True)
+                with d3: st.download_button("Download .MOL", sdf_data, f"{selected_nuc_id}.mol", "chemical/x-mdl-molfile", use_container_width=True)
             else:
                 with d2: st.button("SDF Unavail.", disabled=True, use_container_width=True)
                 with d3: st.button("MOL Unavail.", disabled=True, use_container_width=True)
             
             # Single CSV Download
             with d4:
-                # Merge data for download
                 full_data = {**data, **physchem}
                 full_data.pop("_RDKitMol", None)
                 csv_single = pd.DataFrame([full_data]).to_csv(index=False).encode('utf-8')
                 st.download_button("📄 Data Profile (.csv)", csv_single, f"{selected_nuc_id}_data.csv", "text/csv", use_container_width=True)
 
-        # 2. Analysis
-        with col_preds:
-            st.subheader("Chemical Analysis")
-            st.markdown('<div class="meta-scroll">', unsafe_allow_html=True)
-            if physchem:
-                st.markdown('<div class="feature-card"><h5> Identity</h5>', unsafe_allow_html=True)
-                render_row("Formula", physchem.get("Formula", "-"))
-                render_row("Mol Weight", f"{physchem.get('Mol Wt', '-')} da")
-                render_row("Formal Charge", physchem.get("Charge", "0"))
-                render_row("Stereocenters", physchem.get("Chiral Centers", "0"))
-                st.markdown('</div>', unsafe_allow_html=True)
+        # --- RIGHT COLUMN: TABS FOR DETAILS ---
+        with col_right:
+            # Create tabs
+            tab_analysis, tab_metadata = st.tabs(["⚗️ Chemical Analysis", "📄 Metadata Record"])
+            
+            # Tab 1: Chemical Analysis
+            with tab_analysis:
+                st.markdown('<div class="meta-scroll">', unsafe_allow_html=True)
+                if physchem:
+                    st.markdown('<div class="feature-card"><h5>🧪 Identity</h5>', unsafe_allow_html=True)
+                    render_row("Formula", physchem.get("Formula", "-"))
+                    render_row("Mol Weight", f"{physchem.get('Mol Wt', '-')} da")
+                    render_row("Formal Charge", physchem.get("Charge", "0"))
+                    render_row("Stereocenters", physchem.get("Chiral Centers", "0"))
+                    st.markdown('</div>', unsafe_allow_html=True)
 
-                violations = physchem.get("Lipinski Violations", 0)
-                badge_class = "badge-pass" if violations == 0 else "badge-fail"
-                badge_text = "PASS (0 Violations)" if violations == 0 else f"FAIL ({violations} Violations)"
-                
-                st.markdown(f'<div class="feature-card"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom: 2px solid #f0f2f6; padding-bottom:8px;"><h5 style="margin:0; border:none; padding:0;">⚖️ Rule of 5</h5><span class="{badge_class}">{badge_text}</span></div>', unsafe_allow_html=True)
-                render_row("LogP", physchem.get("LogP", "-"), "≤ 5")
-                render_row("H-Donors", physchem.get("H-Don", "-"), "≤ 5")
-                render_row("H-Acceptors", physchem.get("H-Acc", "-"), "≤ 10")
-                render_row("Rot. Bonds", physchem.get("Rot. Bonds", "-"))
-                render_row("Mol Weight", f"{physchem.get('Mol Wt', '-')} da", "≤ 500")
-                st.markdown('</div>', unsafe_allow_html=True)
+                    violations = physchem.get("Lipinski Violations", 0)
+                    badge_class = "badge-pass" if violations == 0 else "badge-fail"
+                    badge_text = "PASS (0 Violations)" if violations == 0 else f"FAIL ({violations} Violations)"
+                    
+                    st.markdown(f'<div class="feature-card"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom: 2px solid #f0f2f6; padding-bottom:8px;"><h5 style="margin:0; border:none; padding:0;">⚖️ Rule of 5</h5><span class="{badge_class}">{badge_text}</span></div>', unsafe_allow_html=True)
+                    render_row("LogP", physchem.get("LogP", "-"), "≤ 5")
+                    render_row("H-Donors", physchem.get("H-Don", "-"), "≤ 5")
+                    render_row("H-Acceptors", physchem.get("H-Acc", "-"), "≤ 10")
+                    render_row("Rot. Bonds", physchem.get("Rot. Bonds", "-"))
+                    render_row("Mol Weight", f"{physchem.get('Mol Wt', '-')} da", "≤ 500")
+                    st.markdown('</div>', unsafe_allow_html=True)
 
-                st.markdown('<div class="feature-card"><h5> Druglikeness</h5>', unsafe_allow_html=True)
-                render_row("Quantitative estimate of Druglikeness (QED) Score", physchem.get("QED", "-"))
-                render_row("Estimated Solubility", physchem.get("ESOL (LogS)", "-"))
-                render_row("Topological polar surface area (TPSA)", f"{physchem.get('TPSA', '-')} Å²")
-                render_row("Fraction Csp3", physchem.get("F-Csp3", "-"))
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                st.markdown('<div class="feature-card"><h5>💍 Ring Systems</h5>', unsafe_allow_html=True)
-                render_row("Aromatic Rings", physchem.get("Arom. Rings", "-"))
-                render_row("Saturated Rings", physchem.get("Sat. Rings", "-"))
-                st.markdown('</div>', unsafe_allow_html=True)
-            else:
-                st.warning("Unable to compute chemical properties.")
-            st.markdown("</div>", unsafe_allow_html=True)
+                    st.markdown('<div class="feature-card"><h5>💊 Druglikeness</h5>', unsafe_allow_html=True)
+                    render_row("QED Score", physchem.get("QED", "-"))
+                    render_row("Est. Solubility", physchem.get("ESOL (LogS)", "-"))
+                    render_row("TPSA", f"{physchem.get('TPSA', '-')} Å²")
+                    render_row("Fraction Csp3", physchem.get("F-Csp3", "-"))
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    st.markdown('<div class="feature-card"><h5>💍 Ring Systems</h5>', unsafe_allow_html=True)
+                    render_row("Aromatic Rings", physchem.get("Arom. Rings", "-"))
+                    render_row("Saturated Rings", physchem.get("Sat. Rings", "-"))
+                    st.markdown('</div>', unsafe_allow_html=True)
+                else:
+                    st.warning("Unable to compute chemical properties.")
+                st.markdown("</div>", unsafe_allow_html=True)
 
-        # 3. Metadata
-        with col_meta:
-            st.subheader("Metadata Record")
-            st.markdown('<div class="meta-scroll">', unsafe_allow_html=True)
-            if data:
-                nl_id = data.get('nl', 'Unknown')
-                chem_name = data.get('names', data.get('name', '')) 
-                
-                st.markdown(f'<div class="id-card"><div class="id-label">NucLigs Identifier</div><div class="id-value">{nl_id}</div><div class="id-sub">{chem_name}</div></div>', unsafe_allow_html=True)
+            # Tab 2: Metadata
+            with tab_metadata:
+                st.markdown('<div class="meta-scroll">', unsafe_allow_html=True)
+                if data:
+                    nl_id = data.get('nl', 'Unknown')
+                    chem_name = data.get('names', data.get('name', '')) 
+                    
+                    st.markdown(f'<div class="id-card"><div class="id-label">NucLigs Identifier</div><div class="id-value">{nl_id}</div><div class="id-sub">{chem_name}</div></div>', unsafe_allow_html=True)
 
-                st.markdown('<div class="feature-card"><h5> General Info</h5>', unsafe_allow_html=True)
-                exclude_fields = ['nl', 'names', 'name', 'pdbs', 'match', 'smiles', 'inchi', 'description', 'sequence']
-                for key, value in data.items():
-                    if key not in exclude_fields and str(value).lower() != 'nan':
-                        render_row(key.replace('_', ' ').title(), str(value))
-                st.markdown('</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="feature-card"><h5>📋 General Info</h5>', unsafe_allow_html=True)
+                    exclude_fields = ['nl', 'names', 'name', 'pdbs', 'match', 'smiles', 'inchi', 'description', 'sequence']
+                    for key, value in data.items():
+                        if key not in exclude_fields and str(value).lower() != 'nan':
+                            render_row(key.replace('_', ' ').title(), str(value))
+                    st.markdown('</div>', unsafe_allow_html=True)
 
-                long_fields = ["smiles", "inchi", "description", "sequence"]
-                for key in long_fields:
-                    if key in data and str(data[key]).lower() != 'nan':
-                        with st.expander(key.upper(), expanded=False):
-                            st.code(str(data[key]), language="text")
-            else:
-                st.info("No metadata found.")
-            st.markdown("</div>", unsafe_allow_html=True)
+                    long_fields = ["smiles", "inchi", "description", "sequence"]
+                    for key in long_fields:
+                        if key in data and str(data[key]).lower() != 'nan':
+                            with st.expander(key.upper(), expanded=False):
+                                st.code(str(data[key]), language="text")
+                else:
+                    st.info("No metadata found.")
+                st.markdown("</div>", unsafe_allow_html=True)
 
 # ----------------------------------------------------
 # MAIN ROUTER
