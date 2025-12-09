@@ -130,19 +130,19 @@ st.markdown(
         margin-bottom: 8px;
         align-items: flex-start;
     }
+
     /* Tighter layout for rows inside reference cards */
-.ref-card .data-row {
-    justify-content: flex-start;      /* put label + value next to each other */
-}
-
-.ref-card .data-label {
-    min-width: 70px;                  /* smaller fixed label width */
-    margin-right: 6px;                /* small gap */
-}
-
-.ref-card .data-value {
-    text-align: left;                 /* align number with label */
-}
+    .ref-card .data-row {
+        justify-content: flex-start;
+        align-items: center;
+    }
+    .ref-card .data-label {
+        min-width: 55px;      /* smaller than before */
+        margin-right: 2px;    /* very small gap between label and value */
+    }
+    .ref-card .data-value {
+        text-align: left;
+    }
 
     .data-label {
         font-size: 0.85rem;
@@ -249,7 +249,7 @@ SUPABASE_KEY = "sb_secret_UuFsAopmAmHrdvHf6-mGBg_X0QNgMF5"
 BUCKET_NAME = "NucLigs_PDBs"       # PDB files
 METADATA_BUCKET = "codes"          # Excel files
 METADATA_FILENAME = "NucLigs_metadata.xlsx"
-METADATA_REF_FILENAME = "references.xlsx"  # <— NEW references file
+METADATA_REF_FILENAME = "references.xlsx"
 
 @st.cache_resource
 def init_supabase():
@@ -276,7 +276,6 @@ def load_metadata():
     try:
         data_bytes = supabase.storage.from_(METADATA_BUCKET).download(METADATA_FILENAME)
         df = pd.read_excel(io.BytesIO(data_bytes))
-        # normalize: lowercase + spaces -> underscore
         df.columns = [str(c).strip().lower().replace(" ", "_") for c in df.columns]
         return df
     except Exception as e:
@@ -285,13 +284,12 @@ def load_metadata():
 
 @st.cache_data(ttl=0)
 def load_references():
-    """Load ChEMBL reference sheet (chembl_references.xlsx), normalize columns."""
+    """Load reference sheet, normalize columns."""
     if not supabase:
         return pd.DataFrame()
     try:
         data_bytes = supabase.storage.from_(METADATA_BUCKET).download(METADATA_REF_FILENAME)
         df = pd.read_excel(io.BytesIO(data_bytes), sheet_name=0)
-        # normalize: lowercase + spaces -> underscore
         df.columns = [str(c).strip().lower().replace(" ", "_") for c in df.columns]
         return df
     except Exception:
@@ -321,7 +319,7 @@ def calculate_esol(mol, logp, mw, rb, aromatic_rings):
         aromatic_prop = num_aromatic / num_heavy if num_heavy > 0 else 0
         esol = 0.16 - (0.63 * logp) - (0.0062 * mw) + (0.066 * rb) - (0.74 * aromatic_prop)
         return esol
-    except:
+    except Exception:
         return None
 
 def compute_physchem(mol) -> dict:
@@ -369,7 +367,8 @@ def compute_physchem(mol) -> dict:
     return props
 
 def show_3d_pdb(pdb_text: str, style_choice: str = "Stick", bg_color: str = "white"):
-    view = py3Dmol.view(width="100%", height=700)
+    """Render viewer and return the py3Dmol view object (for PNG export)."""
+    view = py3Dmol.view(width=900, height=700)
     view.addModel(pdb_text, "pdb")
     
     if style_choice == "Stick":
@@ -385,6 +384,7 @@ def show_3d_pdb(pdb_text: str, style_choice: str = "Stick", bg_color: str = "whi
     view.setBackgroundColor(bg_color)
     html = view._make_html()
     st.components.v1.html(html, height=700)
+    return view
 
 def render_row(label, value, ref=None, help_text=None):
     ref_html = f'<span class="reference-text">({ref})</span>' if ref else ''
@@ -588,7 +588,7 @@ def render_database():
                                             mol_obj = Chem.MolFromSmiles(smiles)
                                         else:
                                             mol_obj = Chem.MolFromPDBBlock(content, sanitize=True, removeHs=False)
-                                    except:
+                                    except Exception:
                                         mol_obj = None
                                 if fmt in [".sdf", ".mol"] and mol_obj:
                                     final_content = Chem.MolToMolBlock(mol_obj)
@@ -665,13 +665,13 @@ def render_database():
         if smiles_str and smiles_str.lower() != 'nan' and smiles_str.strip():
             try:
                 mol = Chem.MolFromSmiles(smiles_str)
-            except:
+            except Exception:
                 mol = None
         
         if mol is None:
             try:
                 mol = Chem.MolFromPDBBlock(pdb_text, sanitize=True, removeHs=False)
-            except:
+            except Exception:
                 mol = None
 
         physchem = compute_physchem(mol)
@@ -681,18 +681,27 @@ def render_database():
         # LEFT: 3D
         with col_left:
             st.subheader(f"3D Visualization: {selected_nuc_id}")
-            show_3d_pdb(pdb_text, style_choice=style_mode, bg_color=bg_color)
+            view = show_3d_pdb(pdb_text, style_choice=style_mode, bg_color=bg_color)
+
+            # Try to generate PNG bytes from py3Dmol
+            png_bytes = None
+            try:
+                png_bytes = view.png()
+            except Exception:
+                png_bytes = None
             
             st.markdown("""
                 <div style="display: flex; justify-content: center; margin-top: 10px; margin-bottom: 20px;">
                     <div style="background-color: #f0f2f6; padding: 10px; border-radius: 8px; font-size: 0.9rem; color: #555;">
-                        📷 <b>Save Snapshot:</b> Right-click on the viewer above and select "Save Image" to download a PNG.
+                        📷 <b>Tip:</b> You can also right-click on the viewer and choose "Save Image" in most browsers.
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
             st.markdown("##### Export Data")
-            d1, d2, d3, d4 = st.columns([1, 1, 1, 1.2]) 
+            d1, d2, d3, d4, d5 = st.columns([1, 1, 1, 1, 1.2]) 
+
+            # PDB download
             with d1:
                 st.download_button(
                     "Download PDB",
@@ -701,11 +710,25 @@ def render_database():
                     "chemical/x-pdb",
                     use_container_width=True
                 )
+
+            # PNG download
+            with d2:
+                if png_bytes:
+                    st.download_button(
+                        "Download PNG",
+                        png_bytes,
+                        f"{selected_nuc_id}.png",
+                        "image/png",
+                        use_container_width=True
+                    )
+                else:
+                    st.button("PNG Unavail.", disabled=True, use_container_width=True)
             
-            mol_obj = physchem.get("_RDKitMol")
+            # SDF / MOL2
+            mol_obj = physchem.get("_RDKitMol") if physchem else None
             if mol_obj:
                 sdf_data = Chem.MolToMolBlock(mol_obj)
-                with d2:
+                with d3:
                     st.download_button(
                         "Download SDF",
                         sdf_data,
@@ -713,7 +736,7 @@ def render_database():
                         "chemical/x-mdl-sdfile",
                         use_container_width=True
                     )
-                with d3:
+                with d4:
                     st.download_button(
                         "Download MOL2",
                         sdf_data,
@@ -722,13 +745,14 @@ def render_database():
                         use_container_width=True
                     )
             else:
-                with d2:
-                    st.button("SDF Unavail.", disabled=True, use_container_width=True)
                 with d3:
+                    st.button("SDF Unavail.", disabled=True, use_container_width=True)
+                with d4:
                     st.button("MOL2 Unavail.", disabled=True, use_container_width=True)
             
-            with d4:
-                full_data = {**data, **physchem}
+            # CSV
+            with d5:
+                full_data = {**data, **(physchem or {})}
                 full_data.pop("_RDKitMol", None)
                 csv_single = pd.DataFrame([full_data]).to_csv(index=False).encode('utf-8')
                 st.download_button(
@@ -821,14 +845,12 @@ def render_database():
                     st.info("No metadata found.")
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            # Tab 3: References – use chembl_references.xlsx
+            # Tab 3: References
             with tab_refs:
                 st.markdown('<div class="meta-scroll">', unsafe_allow_html=True)
 
-                # PDB label from metadata row
                 pdb_id = str(data.get('pdbs', 'Unknown')).strip()
 
-                # Try to get ChEMBL ID from metadata row
                 chembl_id = None
                 chembl_keys = ['chembl_id', 'chemblid', 'chembl', 'chembl_id_']
                 for k in chembl_keys:
@@ -849,7 +871,6 @@ def render_database():
 
                 chembl_norm = norm_chembl(chembl_id) if chembl_id else ""
 
-                # Header card
                 st.markdown(
                     f"""
                     <div class="id-card">
@@ -861,21 +882,15 @@ def render_database():
                     unsafe_allow_html=True
                 )
 
-                # Match rows in chembl_references.xlsx
                 ref_matches = pd.DataFrame()
                 if not refs_df.empty:
                     candidates = []
-
-                    # match by PDB if column present
                     if 'pdbs' in refs_df.columns and pdb_id:
                         pdb_mask = refs_df['pdbs'].astype(str).str.strip().str.upper() == pdb_id.upper()
                         candidates.append(refs_df[pdb_mask])
-
-                    # match by ChEMBL if column present
                     if chembl_norm and 'chembl_id' in refs_df.columns:
                         chembl_mask = refs_df['chembl_id'].astype(str).apply(norm_chembl) == chembl_norm
                         candidates.append(refs_df[chembl_mask])
-
                     if candidates:
                         ref_matches = pd.concat(candidates, ignore_index=True).drop_duplicates()
 
@@ -884,7 +899,6 @@ def render_database():
                         ref_data = ref_row.to_dict()
                         st.markdown('<div class="ref-card">', unsafe_allow_html=True)
 
-                        # Flexible column names for references
                         title = ref_data.get('title', ref_data.get('reference_title', 'N/A'))
                         journal = ref_data.get('journal', ref_data.get('journal_name', 'N/A'))
                         year = ref_data.get('year', ref_data.get('publication_year', 'N/A'))
@@ -902,7 +916,6 @@ def render_database():
                             meta_str = f"<b>{j_str}</b> ({y_str})"
                             st.markdown(f"<div class='ref-meta'>{meta_str}</div>", unsafe_allow_html=True)
 
-                        # Also show which PDB & ChEMBL this row is linked to (from refs file)
                         row_pdb = ref_data.get('pdbs', pdb_id)
                         row_chembl = ref_data.get('chembl_id', chembl_norm)
                         st.markdown(
@@ -928,7 +941,7 @@ def render_database():
 
                         st.markdown('</div>', unsafe_allow_html=True)
                 else:
-                    st.info("No references found in chembl_references.xlsx for this PDB / ChEMBL ID.")
+                    st.info("No references found in references.xlsx for this PDB / ChEMBL ID.")
 
                 st.markdown("</div>", unsafe_allow_html=True)
 
