@@ -276,6 +276,7 @@ def load_references():
     if not supabase: return pd.DataFrame()
     try:
         data_bytes = supabase.storage.from_(METADATA_BUCKET).download(METADATA_REF_FILENAME)
+        # Using sheet_name=0 based on file inspection (contains title, journal, etc.)
         df = pd.read_excel(io.BytesIO(data_bytes), sheet_name=0) 
         df.columns = [str(c).strip().lower() for c in df.columns]
         return df
@@ -764,21 +765,21 @@ def render_database():
             with tab_refs:
                 st.markdown('<div class="meta-scroll">', unsafe_allow_html=True)
                 
-                current_pdb_id = str(row.iloc[0].get('pdbs', '')).replace('.pdb', '') # remove extension just in case
+                # Fetch chembl ID and filter the references by it
+                chembl_id = None
+                possible_keys = ['external_reference', 'chembl_id', 'chembl']
                 
+                # Find chembl id in the metadata of the selected structure
+                for k in possible_keys:
+                    if k in data and str(data[k]).lower().startswith('chembl'):
+                        chembl_id = str(data[k])
+                        break
+
                 ref_matches = pd.DataFrame()
-                if not refs_df.empty and 'pdbs' in refs_df.columns:
-                     ref_matches = refs_df[refs_df['pdbs'].astype(str) == current_pdb_id]
-                
-                if ref_matches.empty and not refs_df.empty:
-                    chembl_id = None
-                    possible_keys = ['external_reference', 'chembl_id', 'chembl']
-                    for k in possible_keys:
-                        if k in data and str(data[k]).lower().startswith('chembl'):
-                            chembl_id = str(data[k])
-                            break
-                    if chembl_id and 'chembl_id' in refs_df.columns:
-                         ref_matches = refs_df[refs_df['chembl_id'].astype(str) == chembl_id]
+
+                # If chembl_id found in metadata, filter references dataframe
+                if chembl_id and not refs_df.empty and 'chembl_id' in refs_df.columns:
+                     ref_matches = refs_df[refs_df['chembl_id'].astype(str) == chembl_id]
 
                 if not ref_matches.empty:
                     for idx, ref_row in ref_matches.iterrows():
