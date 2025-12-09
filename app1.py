@@ -3,8 +3,10 @@ import py3Dmol
 import pandas as pd
 import io
 import zipfile
+import re  # <-- NEW: for cleaning PubMed values
 
 from supabase import create_client
+
 from rdkit import Chem
 from rdkit.Chem import Descriptors, Crippen, rdMolDescriptors, Lipinski, QED
 
@@ -360,10 +362,7 @@ def compute_physchem(mol) -> dict:
     return props
 
 def show_3d_pdb(pdb_text: str, style_choice: str = "Stick", bg_color: str = "white"):
-    """
-    Render 3D viewer and inject a JS button that calls viewer.png()
-    so the user can save a PNG snapshot of the current view.
-    """
+    """Render 3D viewer and add 'Save PNG Snapshot' button."""
     view = py3Dmol.view(width=900, height=700)
     view.addModel(pdb_text, "pdb")
     
@@ -380,7 +379,6 @@ def show_3d_pdb(pdb_text: str, style_choice: str = "Stick", bg_color: str = "whi
     view.setBackgroundColor(bg_color)
     html = view._make_html()
 
-    # Inject a PNG button under the viewer that calls viewer.png()
     injected = html.replace(
         "</body>",
         """
@@ -406,6 +404,18 @@ def render_row(label, value, ref=None, help_text=None):
            </div>""",
         unsafe_allow_html=True
     )
+
+# ---- NEW: clean PubMed field so you only see one ID ----
+def format_pubmed(value: object) -> str:
+    """Return first numeric PubMed ID from a messy cell."""
+    if value is None:
+        return ""
+    s = str(value)
+    if s.lower() == "nan":
+        return ""
+    # grab first continuous digit block
+    m = re.search(r"\d+", s)
+    return m.group(0) if m else s.strip()
 
 # ----------------------------------------------------
 # PAGE RENDERERS
@@ -900,8 +910,8 @@ def render_database():
 
                     cols = st.columns([1, 2])
                     with cols[0]:
-                        pm_str = str(pubmed).replace('.0', '')
-                        if pm_str.lower() != 'nan':
+                        pm_str = format_pubmed(pubmed)   # <-- cleaned PubMed
+                        if pm_str:
                             render_row("PubMed", pm_str)
 
                     with cols[1]:
