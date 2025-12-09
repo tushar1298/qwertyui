@@ -276,7 +276,7 @@ def load_references():
     if not supabase: return pd.DataFrame()
     try:
         data_bytes = supabase.storage.from_(METADATA_BUCKET).download(METADATA_REF_FILENAME)
-        # Using sheet_name=0 based on file inspection (contains title, journal, etc.)
+        # Using Sheet1 (index 0) where the main data seems to be located
         df = pd.read_excel(io.BytesIO(data_bytes), sheet_name=0) 
         df.columns = [str(c).strip().lower() for c in df.columns]
         return df
