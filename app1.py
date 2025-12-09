@@ -130,6 +130,20 @@ st.markdown(
         margin-bottom: 8px;
         align-items: flex-start;
     }
+    /* Tighter layout for rows inside reference cards */
+.ref-card .data-row {
+    justify-content: flex-start;      /* put label + value next to each other */
+}
+
+.ref-card .data-label {
+    min-width: 70px;                  /* smaller fixed label width */
+    margin-right: 6px;                /* small gap */
+}
+
+.ref-card .data-value {
+    text-align: left;                 /* align number with label */
+}
+
     .data-label {
         font-size: 0.85rem;
         color: #666;
