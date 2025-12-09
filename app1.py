@@ -554,5 +554,3 @@ def render_database():
                     bulk_selected = nuc_ids
                
 
-
-::contentReference[oaicite:0]{index=0}
