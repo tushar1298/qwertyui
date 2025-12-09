@@ -660,8 +660,9 @@ def render_database():
             # Since pure python streamlit cannot easily screenshot the JS component, 
             # we provide a button that would typically trigger client-side logic. 
             # For now, Py3Dmol doesn't have a simple python binding for "save png".
-            # We will rely on user using right click -> save image or similar browser capabilities.
-            # Instead, we will add a label to inform the user.
+            # We will rely on the user right-clicking "Save Image" or using a browser extension for now as direct PNG export from 
+            # py3dmol component in Streamlit is complex without custom JS. 
+            # BUT, we can add a 'spin' or other interactions.
             st.markdown("""
                 <div style="display: flex; justify-content: center; margin-top: 10px; margin-bottom: 20px;">
                     <div style="background-color: #f0f2f6; padding: 10px; border-radius: 8px; font-size: 0.9rem; color: #555;">
