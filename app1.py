@@ -23,24 +23,17 @@ st.set_page_config(
 # ====================================================
 st.markdown("""
 <style>
-.block-container { padding-top: 3rem; padding-bottom: 3rem; }
-
-.meta-scroll { max-height: 70vh; overflow-y: auto; padding-right: 10px; }
-
-.ref-card { background:#fcfcfc; border-left:4px solid #3498db;
-            padding:14px; margin-bottom:14px; border-radius:6px; }
-
-.ref-title { font-weight:700; font-size:1rem; margin-bottom:6px; }
-.ref-meta { font-size:0.85rem; color:#555; margin-bottom:4px; }
-
-.data-row { display:flex; align-items:center; margin-bottom:4px; }
-.data-label { min-width:60px; font-weight:600; color:#666; }
-.data-value { font-family:monospace; }
-
-.id-card { background:#f8f9fa; border-left:5px solid #4CAF50;
-           padding:14px; border-radius:8px; margin-bottom:14px; }
-
-.stTabs [aria-selected="true"] { background:#e8f5e9 !important; }
+.block-container {padding-top:3.5rem;padding-bottom:3rem;}
+.meta-scroll{max-height:70vh;overflow-y:auto;padding-right:12px;}
+.feature-card{background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:15px;margin-bottom:15px}
+.feature-card h5{border-bottom:2px solid #f0f2f6;padding-bottom:6px}
+.ref-card{background:#fcfcfc;border-left:4px solid #3498db;padding:15px;border-radius:6px;margin-bottom:12px}
+.data-row{display:flex;justify-content:space-between;margin-bottom:6px}
+.data-label{min-width:140px;font-weight:600;color:#666}
+.data-value{font-family:monospace;font-weight:600}
+.ref-card .data-row{justify-content:flex-start}
+.ref-card .data-label{min-width:60px;margin-right:5px}
+.id-card{background:#f8f9fa;border-left:5px solid #4CAF50;padding:15px;border-radius:8px;margin-bottom:15px}
 </style>
 """, unsafe_allow_html=True)
 
@@ -52,7 +45,6 @@ SUPABASE_KEY = "sb_secret_UuFsAopmAmHrdvHf6-mGBg_X0QNgMF5"
 
 BUCKET_PDB = "NucLigs_PDBs"
 BUCKET_META = "codes"
-
 META_FILE = "NucLigs_metadata.xlsx"
 REF_FILE = "references.xlsx"
 
@@ -63,90 +55,77 @@ def init_supabase():
 supabase = init_supabase()
 
 # ====================================================
-# LOADERS
+# HELPERS
 # ====================================================
+def format_pubmed(val):
+    if not val or str(val).lower() == "nan":
+        return ""
+    m = re.search(r"\d+", str(val))
+    return m.group(0) if m else ""
+
+def link_pubmed(pid):
+    pid = format_pubmed(pid)
+    if not pid:
+        return "N/A"
+    return f"<a href='https://pubmed.ncbi.nlm.nih.gov/{pid}/' target='_blank'>{pid}</a>"
+
+def link_chembl(cid):
+    if not cid or str(cid).lower() == "nan":
+        return "N/A"
+    cid = cid.replace("CHEMBL_", "CHEMBL").upper()
+    return f"<a href='https://www.ebi.ac.uk/chembl/compound_report_card/{cid}/' target='_blank'>{cid}</a>"
+
+def link_drugbank(dbid):
+    if not dbid or str(dbid).lower() == "nan":
+        return "N/A"
+    return f"<a href='https://go.drugbank.com/drugs/{dbid}' target='_blank'>{dbid}</a>"
+
 @st.cache_data
 def load_metadata():
-    try:
-        b = supabase.storage.from_(BUCKET_META).download(META_FILE)
-        df = pd.read_excel(io.BytesIO(b))
-        df.columns = df.columns.str.lower().str.replace(" ", "_")
-        return df
-    except:
-        return pd.DataFrame()
+    data = supabase.storage.from_(BUCKET_META).download(META_FILE)
+    df = pd.read_excel(io.BytesIO(data))
+    df.columns = [c.lower().replace(" ", "_") for c in df.columns]
+    return df
 
 @st.cache_data
 def load_references():
-    try:
-        b = supabase.storage.from_(BUCKET_META).download(REF_FILE)
-        df = pd.read_excel(io.BytesIO(b))
-        df.columns = df.columns.str.lower().str.replace(" ", "_")
-        return df
-    except:
-        return pd.DataFrame()
+    data = supabase.storage.from_(BUCKET_META).download(REF_FILE)
+    df = pd.read_excel(io.BytesIO(data))
+    df.columns = [c.lower().replace(" ", "_") for c in df.columns]
+    return df
 
-@st.cache_data
-def load_pdb(pdb_name: str):
-    """SAFE Supabase PDB loader"""
-    if not pdb_name or str(pdb_name).lower() == "nan":
-        return None
-    name = str(pdb_name).strip()
-    if not name.lower().endswith(".pdb"):
-        name += ".pdb"
+def fetch_pdb(name):
     try:
-        data = supabase.storage.from_(BUCKET_PDB).download(name)
-        return data.decode("utf-8")
+        if not name.lower().endswith(".pdb"):
+            name += ".pdb"
+        return supabase.storage.from_(BUCKET_PDB).download(name).decode()
     except:
         return None
 
-# ====================================================
-# HELPERS
-# ====================================================
-def norm_chembl(x):
-    if not x or str(x).lower() == "nan":
-        return ""
-    x = str(x).upper().replace("CHEMBL_", "CHEMBL")
-    if not x.startswith("CHEMBL"):
-        x = "CHEMBL" + x
-    return x
-
-def clean_pubmed(x):
-    if not x or str(x).lower() == "nan":
-        return ""
-    m = re.search(r"\d+", str(x))
-    return m.group(0) if m else ""
-
-def link(label, url):
-    return f"<a href='{url}' target='_blank'>{label}</a>"
+def render_row(label, value):
+    st.markdown(
+        f"<div class='data-row'><div class='data-label'>{label}</div>"
+        f"<div class='data-value'>{value}</div></div>",
+        unsafe_allow_html=True
+    )
 
 # ====================================================
-# 3D VIEWER WITH PNG EXPORT
+# 3D VIEWER
 # ====================================================
-def show_3d(pdb_text, style="Stick"):
+def show_3d_pdb(pdb_text):
     view = py3Dmol.view(width=900, height=650)
     view.addModel(pdb_text, "pdb")
-
-    if style == "Stick":
-        view.setStyle({"stick": {}})
-    elif style == "Sphere":
-        view.setStyle({"sphere": {}})
-    else:
-        view.setStyle({"line": {}})
-
+    view.setStyle({"stick": {"colorscheme": "greenCarbon"}})
     view.zoomTo()
     html = view._make_html()
-
     html = html.replace(
         "</body>",
         """
-        <div style="text-align:center;margin-top:8px">
-        <button onclick="viewer.png()"
-        style="padding:6px 12px;border-radius:6px;border:1px solid #ccc;">
-        📷 Save PNG Snapshot
-        </button></div></body>
+        <div style="text-align:center;margin-top:8px;">
+        <button onclick="viewer.png()" style="padding:6px 14px;border-radius:6px">
+        📷 Save PNG Snapshot</button></div></body>
         """
     )
-
     st.components.v1.html(html, height=720)
 
 # ====================================================
@@ -155,85 +134,69 @@ def show_3d(pdb_text, style="Stick"):
 df = load_metadata()
 refs = load_references()
 
-st.sidebar.title("NucLigs Browser")
-
-if df.empty:
-    st.error("Metadata not available")
-    st.stop()
-
-ids = sorted(df["nl"].astype(str).unique())
-nid = st.sidebar.selectbox("Select NucL ID", ids)
+st.sidebar.title("NucLigs Database")
+nid = st.sidebar.selectbox("Select NucL ID", sorted(df["nl"].astype(str)))
 
 row = df[df["nl"].astype(str) == nid].iloc[0]
-pdb_text = load_pdb(row["pdbs"])
+pdb_text = fetch_pdb(row["pdbs"])
 
 if not pdb_text:
-    st.error("PDB file missing in Supabase")
+    st.error("PDB not found")
     st.stop()
 
-# ====================================================
-# MAIN LAYOUT
-# ====================================================
-left, right = st.columns([1.5, 1])
+col1, col2 = st.columns([1.6, 1])
 
-with left:
+# LEFT
+with col1:
     st.subheader(f"3D Structure: {nid}")
-    style = st.selectbox("Style", ["Stick", "Sphere", "Line"])
-    show_3d(pdb_text, style)
+    show_3d_pdb(pdb_text)
 
-with right:
-    tab1, tab2, tab3 = st.tabs(["Metadata", "Chemistry", "References"])
+# RIGHT
+with col2:
+    tab1, tab2, tab3 = st.tabs(["Chemical", "Metadata", "References"])
 
-    # ---------------- METADATA ----------------
-    with tab1:
-        st.markdown(f"""
-        <div class='id-card'>
-        <b>Name:</b> {row.get("names","")}<br><br>
-        <b>DrugBank:</b> {link(row.get("drugbank_id","N/A"),
-        f"https://go.drugbank.com/drugs/{row.get('drugbank_id')}")}<br>
-        <b>ChEMBL:</b> {link(norm_chembl(row.get("chembl_id")),
-        f"https://www.ebi.ac.uk/chembl/compound_report_card/{norm_chembl(row.get('chembl_id'))}")}<br>
-        <b>PubMed:</b> {link(clean_pubmed(row.get("pubmed_id")),
-        f"https://pubmed.ncbi.nlm.nih.gov/{clean_pubmed(row.get('pubmed_id'))}/")}
-        </div>
-        """, unsafe_allow_html=True)
-
-    # ---------------- CHEMISTRY ----------------
     with tab2:
-        mol = Chem.MolFromSmiles(str(row.get("smiles","")))
-        if mol:
-            st.write("Molecular Weight:", Descriptors.MolWt(mol))
-            st.write("LogP:", Crippen.MolLogP(mol))
-            st.write("TPSA:", rdMolDescriptors.CalcTPSA(mol))
+        st.markdown("<div class='meta-scroll'>", unsafe_allow_html=True)
 
-    # ---------------- REFERENCES ----------------
+        st.markdown(
+            f"<div class='id-card'><b>{nid}</b><br>{row.get('names','')}</div>",
+            unsafe_allow_html=True
+        )
+
+        for k, v in row.items():
+            if str(v).lower() == "nan":
+                continue
+            if k in ["drugbank_id", "drugbank"]:
+                render_row("DrugBank", link_drugbank(v))
+            elif k in ["chembl_id", "chembl"]:
+                render_row("ChEMBL", link_chembl(v))
+            elif k in ["pubmed_id", "pmid"]:
+                render_row("PubMed", link_pubmed(v))
+            elif k not in ["nl", "names", "pdbs", "smiles"]:
+                render_row(k.replace("_", " ").title(), v)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
     with tab3:
-        chembl = norm_chembl(row.get("chembl_id"))
-        pdb = str(row.get("pdbs")).replace(".pdb","")
+        st.markdown("<div class='meta-scroll'>", unsafe_allow_html=True)
 
-        hits = pd.DataFrame()
-        if not refs.empty:
-            hits = refs[
-                (refs.get("chembl_id","").apply(norm_chembl) == chembl) |
-                (refs.get("pdbs","").astype(str) == pdb)
-            ]
+        chembl = row.get("chembl_id", "")
+        pdb = row.get("pdbs", "")
 
-        if hits.empty:
+        matches = refs[
+            (refs.get("chembl_id","").astype(str) == str(chembl)) |
+            (refs.get("pdbs","").astype(str) == str(pdb))
+        ]
+
+        if matches.empty:
             st.info("No references found")
         else:
-            for _, r in hits.iterrows():
-                pm = clean_pubmed(r.get("pubmed_id"))
-                st.markdown(f"""
-                <div class='ref-card'>
-                <div class='ref-title'>{r.get("title","")}</div>
-                <div class='ref-meta'>{r.get("journal","")} ({r.get("year","")})</div>
-                <div class='data-row'><span class='data-label'>PubMed</span>
-                <span class='data-value'>
-                <a href='https://pubmed.ncbi.nlm.nih.gov/{pm}/' target='_blank'>{pm}</a>
-                </span></div>
-                <div class='data-row'><span class='data-label'>DOI</span>
-                <span class='data-value'>
-                <a href='https://doi.org/{r.get("doi","")}' target='_blank'>{r.get("doi","")}</a>
-                </span></div>
-                </div>
-                """, unsafe_allow_html=True)
+            for _, r in matches.iterrows():
+                st.markdown("<div class='ref-card'>", unsafe_allow_html=True)
+                st.markdown(f"<b>{r.get('title','')}</b>", unsafe_allow_html=True)
+                render_row("Journal", r.get("journal",""))
+                render_row("Year", r.get("year",""))
+                render_row("PubMed", link_pubmed(r.get("pubmed_id","")))
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
