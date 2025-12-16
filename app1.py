@@ -798,13 +798,13 @@ def render_database():
                 st.warning("Unable to compute chemical properties.")
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # Tab 2: Metadata
+ # Tab 2: Metadata
         with tab_metadata:
             st.markdown('<div class="meta-scroll">', unsafe_allow_html=True)
             if data:
                 nl_id = data.get('nl', 'Unknown')
-                chem_name = data.get('names', data.get('name', '')) 
-                
+                chem_name = data.get('names', data.get('name', ''))
+
                 st.markdown(
                     f'<div class="id-card">'
                     f'<div class="id-label">NucLigs Identifier</div>'
@@ -815,20 +815,45 @@ def render_database():
                 )
 
                 st.markdown('<div class="feature-card"><h5>General Info</h5>', unsafe_allow_html=True)
-                exclude_fields = ['nl', 'names', 'name', 'pdbs', 'match', 'smiles', 'inchi', 'description', 'sequence']
-                for key, value in data.items():
-                    if key not in exclude_fields and str(value).lower() != 'nan':
-                        render_row(key.replace('_', ' ').title(), str(value))
-                st.markdown('</div>', unsafe_allow_html=True)
 
-                long_fields = ["smiles", "inchi", "description", "sequence"]
-                for key in long_fields:
-                    if key in data and str(data[key]).lower() != 'nan':
-                        with st.expander(key.upper(), expanded=False):
-                            st.code(str(data[key]), language="text")
-            else:
-                st.info("No metadata found.")
-            st.markdown("</div>", unsafe_allow_html=True)
+                smiles_val = data.get("smiles")
+
+                pubchem_id = data.get("pubchem_id")
+                drugbank_id = data.get("drugbank_id")
+                chembl_id = data.get("chembl_id")
+
+                if not pubchem_id:
+                    pubchem_id = fetch_pubchem_cid(smiles_val)
+
+                if not chembl_id:
+                    chembl_id = fetch_chembl_id(smiles_val)
+
+                if pubchem_id:
+                    render_link_row("PubChem ID", pubchem_id,
+                        "https://pubchem.ncbi.nlm.nih.gov/compound/")
+
+                if drugbank_id and str(drugbank_id).lower() != "nan":
+                    render_link_row("DrugBank ID", drugbank_id,
+                        "https://go.drugbank.com/drugs/")
+
+                if chembl_id:
+                    render_link_row("ChEMBL ID", chembl_id,
+                        "https://www.ebi.ac.uk/chembl/compound_report_card/")
+
+                exclude_fields = [
+                    'nl','names','name','pdbs','match',
+                    'smiles','inchi','description','sequence',
+                    'pubchem_id','drugbank_id','chembl_id'
+                ]
+
+                for key, value in data.items():
+                    if key in exclude_fields:
+                        continue
+                    if str(value).lower() == 'nan':
+                        continue
+                    render_row(key.replace('_', ' ').title(), str(value))
+
+                st.markdown('</div>', unsafe_allow_html=True)
 
         # Tab 3: References
         with tab_refs:
