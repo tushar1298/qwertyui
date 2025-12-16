@@ -18,7 +18,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY="sb_publishable_AM951Hs4gISMnct_hoT
 
 
 BUCKET_NAME = "codes"
-SOURCE_FILENAME = "app.py"
+SOURCE_FILENAME = "app1.py"
 
 def main():
     try:
