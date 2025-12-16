@@ -243,10 +243,8 @@ st.markdown(
 # ----------------------------------------------------
 # Supabase Configuration
 # ----------------------------------------------------
-
-NEXT_PUBLIC_SUPABASE_URL="https://heuzgnhlrumyfcfigoon.supabase.co"
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY="sb_publishable_AM951Hs4gISMnct_hoTOkA_CnjMPj97"
-
+SUPABASE_URL = "https://heuzgnhlrumyfcfigoon.supabase.co"
+SUPABASE_KEY = "sb_secret_UuFsAopmAmHrdvHf6-mGBg_X0QNgMF5"
 
 BUCKET_NAME = "NucLigs_PDBs"
 METADATA_BUCKET = "codes"
@@ -256,7 +254,7 @@ METADATA_REF_FILENAME = "references.xlsx"
 @st.cache_resource
 def init_supabase():
     try:
-        return create_client(NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY)
+        return create_client(SUPABASE_URL, SUPABASE_KEY)
     except Exception:
         return None
 
