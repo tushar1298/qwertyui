@@ -1,104 +1,52 @@
-# ============================
-# NucLigs Database – Streamlit App
-# ============================
-
 import streamlit as st
 import py3Dmol
 import pandas as pd
-import io, zipfile, re
+import io
+import zipfile
+import re
 
 from supabase import create_client
 from rdkit import Chem
-from rdkit.Chem import (
-    Descriptors, Crippen, rdMolDescriptors,
-    Lipinski, QED
-)
+from rdkit.Chem import Descriptors, Crippen, rdMolDescriptors, Lipinski, QED
 
-# ----------------------------------------------------
+# ====================================================
 # PAGE CONFIG
-# ----------------------------------------------------
+# ====================================================
 st.set_page_config(
     page_title="NucLigs Database",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ----------------------------------------------------
+# ====================================================
 # CSS
-# ----------------------------------------------------
+# ====================================================
 st.markdown("""
 <style>
-.block-container { padding-top: 3.5rem; padding-bottom: 3rem; }
+.block-container { padding-top: 3rem; padding-bottom: 3rem; }
 
 .meta-scroll { max-height: 70vh; overflow-y: auto; padding-right: 10px; }
 
-.feature-card {
-    background: #fff;
-    border: 1px solid #e0e0e0;
-    border-radius: 10px;
-    padding: 15px;
-    margin-bottom: 15px;
-}
+.ref-card { background:#fcfcfc; border-left:4px solid #3498db;
+            padding:14px; margin-bottom:14px; border-radius:6px; }
 
-.ref-card {
-    background: #fcfcfc;
-    border-left: 4px solid #3498db;
-    padding: 15px;
-    margin-bottom: 15px;
-    border-radius: 6px;
-}
+.ref-title { font-weight:700; font-size:1rem; margin-bottom:6px; }
+.ref-meta { font-size:0.85rem; color:#555; margin-bottom:4px; }
 
-.data-row {
-    display: flex;
-    align-items: center;
-    margin-bottom: 6px;
-}
+.data-row { display:flex; align-items:center; margin-bottom:4px; }
+.data-label { min-width:60px; font-weight:600; color:#666; }
+.data-value { font-family:monospace; }
 
-.data-label {
-    min-width: 90px;
-    font-size: 0.85rem;
-suggest:
-    font-weight: 600;
-    color: #666;
-}
+.id-card { background:#f8f9fa; border-left:5px solid #4CAF50;
+           padding:14px; border-radius:8px; margin-bottom:14px; }
 
-.data-value {
-    font-family: monospace;
-    font-size: 0.9rem;
-    color: #222;
-}
-
-.id-card {
-    background: #f8f9fa;
-    border-left: 5px solid #4CAF50;
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-}
-
-.badge-pass {
-    background: #d4edda;
-    color: #155724;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 700;
-}
-
-.badge-fail {
-    background: #f8d7da;
-    color: #721c24;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 700;
-}
+.stTabs [aria-selected="true"] { background:#e8f5e9 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ----------------------------------------------------
-# SUPABASE
-# ----------------------------------------------------
+# ====================================================
+# SUPABASE CONFIG
+# ====================================================
 SUPABASE_URL = "https://heuzgnhlrumyfcfigoon.supabase.co"
 SUPABASE_KEY = "sb_secret_UuFsAopmAmHrdvHf6-mGBg_X0QNgMF5"
 
@@ -114,167 +62,178 @@ def init_supabase():
 
 supabase = init_supabase()
 
-# ----------------------------------------------------
-# HELPERS
-# ----------------------------------------------------
-def format_pubmed(val):
-    if not val or str(val).lower() == "nan":
-        return ""
-    m = re.search(r"\d+", str(val))
-    return m.group(0) if m else ""
-
-def ext_link(label, value, prefix):
-    if not value:
-        return
-    v = str(value).strip()
-    st.markdown(
-        f"""
-        <div class="data-row">
-            <span class="data-label">{label}</span>
-            <span class="data-value">
-                <a href="{prefix}{v}" target="_blank">{v}</a>
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-def render_row(label, value):
-    st.markdown(
-        f"""
-        <div class="data-row">
-            <span class="data-label">{label}</span>
-            <span class="data-value">{value}</span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-# ----------------------------------------------------
-# LOAD DATA
-# ----------------------------------------------------
+# ====================================================
+# LOADERS
+# ====================================================
 @st.cache_data
 def load_metadata():
-    b = supabase.storage.from_(BUCKET_META).download(META_FILE)
-    df = pd.read_excel(io.BytesIO(b))
-    df.columns = [c.lower().replace(" ", "_") for c in df.columns]
-    return df
+    try:
+        b = supabase.storage.from_(BUCKET_META).download(META_FILE)
+        df = pd.read_excel(io.BytesIO(b))
+        df.columns = df.columns.str.lower().str.replace(" ", "_")
+        return df
+    except:
+        return pd.DataFrame()
 
 @st.cache_data
-def load_refs():
-    b = supabase.storage.from_(BUCKET_META).download(REF_FILE)
-    df = pd.read_excel(io.BytesIO(b))
-    df.columns = [c.lower().replace(" ", "_") for c in df.columns]
-    return df
+def load_references():
+    try:
+        b = supabase.storage.from_(BUCKET_META).download(REF_FILE)
+        df = pd.read_excel(io.BytesIO(b))
+        df.columns = df.columns.str.lower().str.replace(" ", "_")
+        return df
+    except:
+        return pd.DataFrame()
 
 @st.cache_data
-def load_pdb(name):
-    b = supabase.storage.from_(BUCKET_PDB).download(name)
-    return b.decode()
+def load_pdb(pdb_name: str):
+    """SAFE Supabase PDB loader"""
+    if not pdb_name or str(pdb_name).lower() == "nan":
+        return None
+    name = str(pdb_name).strip()
+    if not name.lower().endswith(".pdb"):
+        name += ".pdb"
+    try:
+        data = supabase.storage.from_(BUCKET_PDB).download(name)
+        return data.decode("utf-8")
+    except:
+        return None
 
-# ----------------------------------------------------
-# 3D VIEWER WITH PNG BUTTON
-# ----------------------------------------------------
-def show_3d(pdb_text):
-    v = py3Dmol.view(width=900, height=600)
-    v.addModel(pdb_text, "pdb")
-    v.setStyle({"stick": {"colorscheme": "greenCarbon"}})
-    v.zoomTo()
+# ====================================================
+# HELPERS
+# ====================================================
+def norm_chembl(x):
+    if not x or str(x).lower() == "nan":
+        return ""
+    x = str(x).upper().replace("CHEMBL_", "CHEMBL")
+    if not x.startswith("CHEMBL"):
+        x = "CHEMBL" + x
+    return x
 
-    html = v._make_html().replace(
+def clean_pubmed(x):
+    if not x or str(x).lower() == "nan":
+        return ""
+    m = re.search(r"\d+", str(x))
+    return m.group(0) if m else ""
+
+def link(label, url):
+    return f"<a href='{url}' target='_blank'>{label}</a>"
+
+# ====================================================
+# 3D VIEWER WITH PNG EXPORT
+# ====================================================
+def show_3d(pdb_text, style="Stick"):
+    view = py3Dmol.view(width=900, height=650)
+    view.addModel(pdb_text, "pdb")
+
+    if style == "Stick":
+        view.setStyle({"stick": {}})
+    elif style == "Sphere":
+        view.setStyle({"sphere": {}})
+    else:
+        view.setStyle({"line": {}})
+
+    view.zoomTo()
+    html = view._make_html()
+
+    html = html.replace(
         "</body>",
         """
-        <div style="text-align:center;margin-top:10px;">
-          <button onclick="viewer.png()"
-           style="padding:6px 14px;border-radius:6px;border:1px solid #ccc;">
-           📷 Save PNG Snapshot
-          </button>
-        </div>
-        </body>
+        <div style="text-align:center;margin-top:8px">
+        <button onclick="viewer.png()"
+        style="padding:6px 12px;border-radius:6px;border:1px solid #ccc;">
+        📷 Save PNG Snapshot
+        </button></div></body>
         """
     )
-    st.components.v1.html(html, height=650)
 
-# ----------------------------------------------------
+    st.components.v1.html(html, height=720)
+
+# ====================================================
 # MAIN APP
-# ----------------------------------------------------
-meta = load_metadata()
-refs = load_refs()
+# ====================================================
+df = load_metadata()
+refs = load_references()
 
-st.sidebar.title("NucLigs Database")
+st.sidebar.title("NucLigs Browser")
 
-nid = st.sidebar.selectbox(
-    "Select Structure",
-    meta["nl"].astype(str).tolist()
-)
+if df.empty:
+    st.error("Metadata not available")
+    st.stop()
 
-row = meta[meta["nl"].astype(str) == nid].iloc[0]
-pdb_name = row["pdbs"]
-pdb_text = load_pdb(pdb_name)
+ids = sorted(df["nl"].astype(str).unique())
+nid = st.sidebar.selectbox("Select NucL ID", ids)
 
-# ----------------------------------------------------
-# LAYOUT
-# ----------------------------------------------------
-left, right = st.columns([1.4, 1])
+row = df[df["nl"].astype(str) == nid].iloc[0]
+pdb_text = load_pdb(row["pdbs"])
+
+if not pdb_text:
+    st.error("PDB file missing in Supabase")
+    st.stop()
+
+# ====================================================
+# MAIN LAYOUT
+# ====================================================
+left, right = st.columns([1.5, 1])
 
 with left:
-    st.subheader(f"3D Structure – {nid}")
-    show_3d(pdb_text)
+    st.subheader(f"3D Structure: {nid}")
+    style = st.selectbox("Style", ["Stick", "Sphere", "Line"])
+    show_3d(pdb_text, style)
 
 with right:
-    tabs = st.tabs(["Chemical Analysis", "Metadata", "References"])
-
-    # ---------------- CHEMICAL ----------------
-    with tabs[0]:
-        mol = Chem.MolFromSmiles(row.get("smiles", "")) if pd.notna(row.get("smiles")) else None
-        if mol:
-            mw = Descriptors.MolWt(mol)
-            logp = Crippen.MolLogP(mol)
-            viol = sum([
-                mw > 500,
-                logp > 5,
-                Lipinski.NumHDonors(mol) > 5,
-                Lipinski.NumHAcceptors(mol) > 10
-            ])
-            badge = "badge-pass" if viol == 0 else "badge-fail"
-
-            st.markdown(f"<span class='{badge}'>Lipinski Violations: {viol}</span>", unsafe_allow_html=True)
-            render_row("MW", f"{mw:.2f}")
-            render_row("LogP", f"{logp:.2f}")
-            render_row("TPSA", f"{rdMolDescriptors.CalcTPSA(mol):.2f}")
-            render_row("QED", f"{QED.qed(mol):.3f}")
+    tab1, tab2, tab3 = st.tabs(["Metadata", "Chemistry", "References"])
 
     # ---------------- METADATA ----------------
-    with tabs[1]:
-        st.markdown("<div class='id-card'>", unsafe_allow_html=True)
-        render_row("NucL ID", nid)
-        st.markdown("</div>", unsafe_allow_html=True)
+    with tab1:
+        st.markdown(f"""
+        <div class='id-card'>
+        <b>Name:</b> {row.get("names","")}<br><br>
+        <b>DrugBank:</b> {link(row.get("drugbank_id","N/A"),
+        f"https://go.drugbank.com/drugs/{row.get('drugbank_id')}")}<br>
+        <b>ChEMBL:</b> {link(norm_chembl(row.get("chembl_id")),
+        f"https://www.ebi.ac.uk/chembl/compound_report_card/{norm_chembl(row.get('chembl_id'))}")}<br>
+        <b>PubMed:</b> {link(clean_pubmed(row.get("pubmed_id")),
+        f"https://pubmed.ncbi.nlm.nih.gov/{clean_pubmed(row.get('pubmed_id'))}/")}
+        </div>
+        """, unsafe_allow_html=True)
 
-        ext_link("ChEMBL", row.get("chembl_id"), "https://www.ebi.ac.uk/chembl/compound_report_card/")
-        ext_link("DrugBank", row.get("drugbank_id"), "https://go.drugbank.com/drugs/")
-        ext_link("PubMed", format_pubmed(row.get("pubmed_id")), "https://pubmed.ncbi.nlm.nih.gov/")
+    # ---------------- CHEMISTRY ----------------
+    with tab2:
+        mol = Chem.MolFromSmiles(str(row.get("smiles","")))
+        if mol:
+            st.write("Molecular Weight:", Descriptors.MolWt(mol))
+            st.write("LogP:", Crippen.MolLogP(mol))
+            st.write("TPSA:", rdMolDescriptors.CalcTPSA(mol))
 
     # ---------------- REFERENCES ----------------
-    with tabs[2]:
-        chembl = str(row.get("chembl_id", "")).upper()
-        pdbid = str(row.get("pdbs", "")).upper()
+    with tab3:
+        chembl = norm_chembl(row.get("chembl_id"))
+        pdb = str(row.get("pdbs")).replace(".pdb","")
 
         hits = pd.DataFrame()
-        if chembl and "chembl_id" in refs.columns:
-            hits = refs[refs["chembl_id"].str.upper() == chembl]
-        if hits.empty and "pdbs" in refs.columns:
-            hits = refs[refs["pdbs"].str.upper() == pdbid]
+        if not refs.empty:
+            hits = refs[
+                (refs.get("chembl_id","").apply(norm_chembl) == chembl) |
+                (refs.get("pdbs","").astype(str) == pdb)
+            ]
 
         if hits.empty:
-            st.info("No references found.")
+            st.info("No references found")
         else:
             for _, r in hits.iterrows():
-                st.markdown("<div class='ref-card'>", unsafe_allow_html=True)
-                st.markdown(f"**{r.get('title','')}**")
-                st.markdown(f"{r.get('journal','')} ({r.get('year','')})")
-                pmid = format_pubmed(r.get("pubmed_id"))
-                if pmid:
-                    st.markdown(f"PubMed: [{pmid}](https://pubmed.ncbi.nlm.nih.gov/{pmid})")
-                if pd.notna(r.get("doi")):
-                    st.markdown(f"DOI: https://doi.org/{r['doi']}")
-                st.markdown("</div>", unsafe_allow_html=True)
+                pm = clean_pubmed(r.get("pubmed_id"))
+                st.markdown(f"""
+                <div class='ref-card'>
+                <div class='ref-title'>{r.get("title","")}</div>
+                <div class='ref-meta'>{r.get("journal","")} ({r.get("year","")})</div>
+                <div class='data-row'><span class='data-label'>PubMed</span>
+                <span class='data-value'>
+                <a href='https://pubmed.ncbi.nlm.nih.gov/{pm}/' target='_blank'>{pm}</a>
+                </span></div>
+                <div class='data-row'><span class='data-label'>DOI</span>
+                <span class='data-value'>
+                <a href='https://doi.org/{r.get("doi","")}' target='_blank'>{r.get("doi","")}</a>
+                </span></div>
+                </div>
+                """, unsafe_allow_html=True)
