@@ -239,7 +239,7 @@ SUPABASE_KEY = "sb_secret_UuFsAopmAmHrdvHf6-mGBg_X0QNgMF5"
 BUCKET_NAME = "NucLigs_PDBs"       # PDB files are here
 METADATA_BUCKET = "codes"          # Metadata Excel files are here
 METADATA_FILENAME = "NucLigs_metadata.xlsx"
-METADATA_REF_FILENAME = "NucLigs_metadata_references.xlsx"
+METADATA_REF_FILENAME = "references.xlsx"
 
 @st.cache_resource
 def init_supabase():
@@ -382,9 +382,14 @@ def show_3d_pdb(pdb_text: str, style_choice: str = "Stick", bg_color: str = "whi
     html = view._make_html()
     st.components.v1.html(html, height=700)
 
-def render_row(label, value, ref=None, help_text=None):
+def render_row(label, value, ref=None, help_text=None, link=None):
     ref_html = f'<span class="reference-text">({ref})</span>' if ref else ''
-    st.markdown(f"""<div class="data-row"><span class="data-label">{label}</span><span class="data-value">{value}{ref_html}</span></div>""", unsafe_allow_html=True)
+    if link:
+        val_html = f'<a href="{link}" target="_blank" style="color:#3498db;text-decoration:none;">{value}</a>'
+    else:
+        val_html = value
+        
+    st.markdown(f"""<div class="data-row"><span class="data-label">{label}</span><span class="data-value">{val_html}{ref_html}</span></div>""", unsafe_allow_html=True)
 
 # ---- Helper for cleaning PubMed IDs ----
 def format_pubmed(value: object) -> str:
@@ -397,6 +402,22 @@ def format_pubmed(value: object) -> str:
     # grab first continuous digit block
     m = re.search(r"\d+", s)
     return m.group(0) if m else s.strip()
+
+def get_external_link(key: str, value: str) -> str:
+    """Return a URL for known external ID types."""
+    k = key.lower()
+    v = str(value).strip()
+    if not v or v.lower() == 'nan': return None
+    
+    if 'chembl' in k:
+        return f"https://www.ebi.ac.uk/chembl/compound_report_card/{v}"
+    elif 'pubchem' in k:
+        return f"https://pubchem.ncbi.nlm.nih.gov/compound/{v}"
+    elif 'drugbank' in k:
+        return f"https://go.drugbank.com/drugs/{v}"
+    elif 'patent' in k:
+        return f"https://patents.google.com/patent/{v}"
+    return None
 
 # ----------------------------------------------------
 # PAGE RENDERERS
@@ -762,7 +783,9 @@ def render_database():
                     exclude_fields = ['nl', 'names', 'name', 'pdbs', 'match', 'smiles', 'inchi', 'description', 'sequence']
                     for key, value in data.items():
                         if key not in exclude_fields and str(value).lower() != 'nan':
-                            render_row(key.replace('_', ' ').title(), str(value))
+                            # Check if value is a known ID type and add link
+                            link_url = get_external_link(key, str(value))
+                            render_row(key.replace('_', ' ').title(), str(value), link=link_url)
                     st.markdown('</div>', unsafe_allow_html=True)
 
                     long_fields = ["smiles", "inchi", "description", "sequence"]
@@ -820,7 +843,9 @@ def render_database():
                         with cols[0]:
                             pm_str = format_pubmed(pubmed)
                             if pm_str:
-                                render_row("PubMed", pm_str)
+                                # Create PubMed link
+                                pm_link = f"https://pubmed.ncbi.nlm.nih.gov/{pm_str}/"
+                                render_row("PubMed", pm_str, link=pm_link)
                         
                         with cols[1]:
                             if doi and str(doi).lower() != 'nan':
