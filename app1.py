@@ -239,7 +239,7 @@ SUPABASE_KEY = "sb_secret_UuFsAopmAmHrdvHf6-mGBg_X0QNgMF5"
 BUCKET_NAME = "NucLigs_PDBs"       # PDB files are here
 METADATA_BUCKET = "codes"          # Metadata Excel files are here
 METADATA_FILENAME = "NucLigs_metadata.xlsx"
-METADATA_REF_FILENAME = "references.xlsx" # Using the new reference file
+METADATA_REF_FILENAME = "references.xlsx"
 
 @st.cache_resource
 def init_supabase():
@@ -339,7 +339,7 @@ def compute_physchem(mol) -> dict:
         props["LogP"] = f"{logp:.2f}"
         props["TPSA"] = f"{rdMolDescriptors.CalcTPSA(mol):.2f}"
         props["QED"] = f"{qed:.3f}"
-        props["ESOL (LogS)"] = f"{esol:.2f}" if esol is not None else "N/A"
+        props["ESOL (LogS)"] = f"{esol:.2f}" if esol else "N/A"
         props["H-Acc"] = h_acc
         props["H-Don"] = h_don
         props["Rot. Bonds"] = rb
@@ -804,20 +804,40 @@ def render_database():
                 # Fetch chembl ID and filter the references by it
                 chembl_id = None
                 possible_keys = ['external_reference', 'chembl_id', 'chembl']
-                
-                # Find chembl id in the metadata of the selected structure
                 for k in possible_keys:
                     if k in data and str(data[k]).lower().startswith('chembl'):
                         chembl_id = str(data[k])
                         break
 
                 ref_matches = pd.DataFrame()
-
-                # If chembl_id found in metadata, filter references dataframe
+                
+                # Strategy 1: Match via ChEMBL ID
                 if chembl_id and not refs_df.empty and 'chembl_id' in refs_df.columns:
-                     ref_matches = refs_df[refs_df['chembl_id'].astype(str) == chembl_id]
+                     # Using case-insensitive match for robustness
+                     ref_matches = refs_df[refs_df['chembl_id'].astype(str).str.strip().str.upper() == chembl_id.upper()]
 
+                # Strategy 2: Match via Name if ChEMBL didn't yield results or as supplementary
+                # Some rows in references.xlsx use the compound name in the 'chembl_id' column (based on user prompt)
+                if ref_matches.empty and not refs_df.empty and 'chembl_id' in refs_df.columns:
+                    # Try matching the 'names' or 'name' from metadata against the 'chembl_id' column in refs
+                    # This handles the case: "some structures are added by their names along with their references"
+                    name_keys = ['names', 'name', 'molecule_name']
+                    found_name = None
+                    for nk in name_keys:
+                        if nk in data and str(data[nk]).lower() != 'nan':
+                            found_name = str(data[nk]).strip()
+                            break
+                    
+                    if found_name:
+                        # Case-insensitive match on the 'chembl_id' column in reference file
+                        # (The prompt implies names might be stored in that column or a similar identifier column)
+                        ref_matches = refs_df[refs_df['chembl_id'].astype(str).str.strip().str.lower() == found_name.lower()]
+
+                # Combine results if needed, or just display what we found
                 if not ref_matches.empty:
+                    # Deduplicate based on title or DOI to avoid showing same ref twice if strategies overlap
+                    ref_matches = ref_matches.drop_duplicates(subset=['title', 'doi'])
+
                     for idx, ref_row in ref_matches.iterrows():
                         ref_data = ref_row.to_dict()
                         st.markdown(f'<div class="ref-card">', unsafe_allow_html=True)
