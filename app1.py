@@ -430,7 +430,7 @@ def render_homepage():
         <div style="text-align: center; padding-top: 10px;">
             <img src="{LOGO_URL}" width="180" style="margin-bottom: 15px;">
             <h1 style='color: #2c3e50; margin-bottom: 0;'>NucLigs Database</h1>
-            <p style='color: #666; font-size: 1.15rem; font-weight: 300;'>The Premier Resource for Nucleic Acid Ligand Structures</p>
+            <p style='color: #666; font-size: 1.15rem; font-weight: 300;'>The Resource for Nucleoside and Nucleotide Analog Structure and Properties</p>
         </div>
         """, 
         unsafe_allow_html=True
@@ -489,7 +489,8 @@ def render_homepage():
             st.session_state['page'] = 'database'
             st.rerun()
     
-    st.markdown("<div style='text-align: center; margin-top: 50px; color: #aaa; font-size: 0.85rem;'>© 2024 NucLigs Database Project • Version 2.2</div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; margin-top: 50px; color: #aaa; font-size: 0.85rem;'>© 2025 NucLigs Database Project • Version 1.0</div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; margin-top: 50px; color: #aaa; font-size: 0.85rem;'>Designed by Tushar Gupta and Dr. Pradeep Pant</div>", unsafe_allow_html=True)
 
 def render_database():
     metadata_df = load_metadata()
@@ -698,13 +699,6 @@ def render_database():
             # We will rely on the user right-clicking "Save Image" or using a browser extension for now as direct PNG export from 
             # py3dmol component in Streamlit is complex without custom JS. 
             # BUT, we can add a 'spin' or other interactions.
-            st.markdown("""
-                <div style="display: flex; justify-content: center; margin-top: 10px; margin-bottom: 20px;">
-                    <div style="background-color: #f0f2f6; padding: 10px; border-radius: 8px; font-size: 0.9rem; color: #555;">
-                        📷 <b>Save Snapshot:</b> Right-click on the viewer above and select "Save Image" to download a PNG.
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
 
             st.markdown("##### Export Data")
             d1, d2, d3, d4 = st.columns([1, 1, 1, 1.2]) 
@@ -715,7 +709,7 @@ def render_database():
             if mol_obj:
                 sdf_data = Chem.MolToMolBlock(mol_obj)
                 with d2: st.download_button("Download SDF", sdf_data, f"{selected_nuc_id}.sdf", "chemical/x-mdl-sdfile", use_container_width=True)
-                with d3: st.download_button("Download MOL", sdf_data, f"{selected_nuc_id}.mol", "chemical/x-mdl-molfile", use_container_width=True)
+                with d3: st.download_button("Download MOL2", sdf_data, f"{selected_nuc_id}.mol", "chemical/x-mdl-molfile", use_container_width=True)
             else:
                 with d2: st.button("SDF Unavail.", disabled=True, use_container_width=True)
                 with d3: st.button("MOL Unavail.", disabled=True, use_container_width=True)
