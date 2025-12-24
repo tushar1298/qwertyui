@@ -239,7 +239,7 @@ SUPABASE_KEY = "sb_secret_UuFsAopmAmHrdvHf6-mGBg_X0QNgMF5"
 BUCKET_NAME = "NucLigs_PDBs"       # PDB files are here
 METADATA_BUCKET = "codes"          # Metadata Excel files are here
 METADATA_FILENAME = "NucLigs_metadata.xlsx"
-METADATA_REF_FILENAME = "references.xlsx" # Updated to references.xlsx
+METADATA_REF_FILENAME = "references.xlsx"
 
 @st.cache_resource
 def init_supabase():
@@ -265,7 +265,7 @@ def load_metadata():
         # Fetch Excel from 'codes' bucket using Supabase Storage
         data_bytes = supabase.storage.from_(METADATA_BUCKET).download(METADATA_FILENAME)
         df = pd.read_excel(io.BytesIO(data_bytes))
-        df.columns = [str(c).strip().lower() for c in df.columns]
+        df.columns = [str(c).strip().lower().replace(" ", "_") for c in df.columns]
         return df
     except Exception as e:
         st.sidebar.error(f"Error loading metadata from Supabase: {e}")
@@ -279,7 +279,7 @@ def load_references():
         data_bytes = supabase.storage.from_(METADATA_BUCKET).download(METADATA_REF_FILENAME)
         # Using Sheet1 (index 0) where the main data seems to be located
         df = pd.read_excel(io.BytesIO(data_bytes), sheet_name=0) 
-        df.columns = [str(c).strip().lower() for c in df.columns]
+        df.columns = [str(c).strip().lower().replace(" ", "_") for c in df.columns]
         return df
     except Exception:
         return pd.DataFrame()
@@ -339,7 +339,7 @@ def compute_physchem(mol) -> dict:
         props["LogP"] = f"{logp:.2f}"
         props["TPSA"] = f"{rdMolDescriptors.CalcTPSA(mol):.2f}"
         props["QED"] = f"{qed:.3f}"
-        props["ESOL (LogS)"] = f"{esol:.2f}" if esol is not None else "N/A"
+        props["ESOL (LogS)"] = f"{esol:.2f}" if esol else "N/A"
         props["H-Acc"] = h_acc
         props["H-Don"] = h_don
         props["Rot. Bonds"] = rb
