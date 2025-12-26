@@ -1,46 +1,41 @@
 import streamlit as st
 from supabase import create_client
 
-# --------------------------------------------------------------------------------
-# GITHUB LOADER SCRIPT
-# --------------------------------------------------------------------------------
-# This script serves as a shell to fetch and run the actual application 
-# stored securely in your Supabase Storage. Upload this file as 'app.py' 
-# to your GitHub repository.
-# --------------------------------------------------------------------------------
-
-# Configuration
-# Tip: For extra security in production, store these in Streamlit Secrets (st.secrets)
-
+# ==============================
+# CONFIGURATION
+# ==============================
 SUPABASE_URL = "https://heuzgnhlrumyfcfigoon.supabase.co"
-SUPABASE_KEY = "sb_secret_UuFsAopmAmHrdvHf6-mGBg_X0QNgMF5"
 
-
+# ⚠️ MOVE THIS TO STREAMLIT SECRETS (see below)
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
 BUCKET_NAME = "codes"
-SOURCE_FILENAME = "app1.py"
 
+# ⚠️ UPDATE PATH IF FILE IS IN A FOLDER
+SOURCE_FILENAME = "app1.py"   # e.g. "backend/app1.py"
+
+# ==============================
+# LOADER
+# ==============================
 def main():
     try:
-        # 1. Initialize Supabase Client
+        st.info("🔄 Loading application from Supabase...")
+
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-        # 2. Fetch the source code from the 'codes' bucket
-        print(f"Fetching {SOURCE_FILENAME} from Supabase...")
-        response = supabase.storage.from_(BUCKET_NAME).download(SOURCE_FILENAME)
-        
-        # 3. Decode the byte response to a UTF-8 string
-        source_code = response.decode('utf-8')
+        data = supabase.storage.from_(BUCKET_NAME).download(SOURCE_FILENAME)
 
-        # 4. Execute the fetched code
-        #    We pass 'globals()' to ensure the executed code has access to 
-        #    the necessary imports and Streamlit context.
+        if not data:
+            raise RuntimeError("Downloaded file is empty")
+
+        source_code = data.decode("utf-8")
+
+        # Execute remote app
         exec(source_code, globals())
 
     except Exception as e:
-        # If fetching fails, show a generic error (or specific one for debugging)
-        st.error("Failed to load the application from the remote server.")
-        st.expander("Error Details").code(str(e))
+        st.error("❌ Failed to load the application from Supabase.")
+        st.exception(e)
 
 if __name__ == "__main__":
     main()
