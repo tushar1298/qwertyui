@@ -12,7 +12,7 @@ SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 BUCKET_NAME = "codes"
 
 # ⚠️ UPDATE PATH IF FILE IS IN A FOLDER
-SOURCE_FILENAME = "app1.py"   # e.g. "backend/app1.py"
+SOURCE_FILENAME = "app.py"   # e.g. "backend/app1.py"
 
 # ==============================
 # LOADER
