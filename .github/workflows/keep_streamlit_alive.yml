@@ -1,0 +1,19 @@
+name: Keep NucLigs Streamlit App Alive
+
+on:
+  schedule:
+    # Runs every 3 days at 12:00 UTC
+    - cron: "0 12 */3 * *"
+
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Streamlit App
+        run: |
+          echo "Pinging NucLigs Streamlit app..."
+          curl -A "Mozilla/5.0" -L --max-time 30 https://nucligsdb.streamlit.app/
+          echo "App pinged successfully."
