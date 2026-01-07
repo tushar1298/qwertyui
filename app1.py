@@ -235,8 +235,9 @@ PDB_ZIP_NAME = "pdb_archive_01.zip"
 # ----------------------------------------------------
 # Supabase Configuration
 # ----------------------------------------------------
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+SUPABASE_URL = "https://heuzgnhlrumyfcfigoon.supabase.co"
+SUPABASE_KEY = "sb_secret_UuFsAopmAmHrdvHf6-mGBg_X0QNgMF5"
+
 
 
 # BUCKET CONFIGURATION
@@ -996,3 +997,4 @@ if st.session_state['page'] == 'home':
     render_homepage()
 else:
     render_database()
+
