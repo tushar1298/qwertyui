@@ -864,14 +864,14 @@ def render_database():
                     st.info("No metadata found.")
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            # Tab 3: References (New Logic)
-            with tab_refs:
+# ---------------- TAB 3: REFERENCES ----------------
+with tab_refs:
     st.markdown('<div class="meta-scroll">', unsafe_allow_html=True)
 
     references_rendered = False
 
     # =====================================================
-    # 1️⃣ REFERENCES FROM references.xlsx (ChEMBL + Name)
+    # 1️⃣ REFERENCES FROM references.xlsx (ChEMBL / Name)
     # =====================================================
     chembl_id = None
     for k in ['external_reference', 'chembl_id', 'chembl']:
@@ -884,16 +884,20 @@ def render_database():
     # Match via ChEMBL ID
     if chembl_id and not refs_df.empty and 'chembl_id' in refs_df.columns:
         ref_matches = refs_df[
-            refs_df['chembl_id'].astype(str).str.strip().str.upper() == chembl_id.upper()
+            refs_df['chembl_id'].astype(str).str.strip().str.upper()
+            == chembl_id.upper()
         ]
 
-    # Match via compound name (fallback inside reference file)
+    # Match via compound name
     if ref_matches.empty and not refs_df.empty:
         for nk in ['names', 'name', 'molecule_name']:
             if nk in data and str(data[nk]).lower() != 'nan':
                 cname = str(data[nk]).strip().lower()
                 ref_matches = refs_df[
-                    refs_df['chembl_id'].astype(str).str.strip().str.lower() == cname
+                    refs_df['chembl_id'].astype(str)
+                    .str.strip()
+                    .str.lower()
+                    == cname
                 ]
                 if not ref_matches.empty:
                     break
@@ -911,12 +915,15 @@ def render_database():
             pubmed = format_pubmed(ref.get('pubmed_id'))
             doi = ref.get('doi')
 
-            st.markdown(f"<div class='ref-title'>{title}</div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div class='ref-title'>{title}</div>",
+                unsafe_allow_html=True
+            )
 
             if journal or year:
                 st.markdown(
                     f"<div class='ref-meta'><b>{journal}</b> ({year})</div>",
-                    unsafe_allow_html=True,
+                    unsafe_allow_html=True
                 )
 
             cols = st.columns([1, 2])
@@ -925,16 +932,19 @@ def render_database():
                     render_row(
                         "PubMed",
                         pubmed,
-                        link=f"https://pubmed.ncbi.nlm.nih.gov/{pubmed}/",
+                        link=f"https://pubmed.ncbi.nlm.nih.gov/{pubmed}/"
                     )
 
             with cols[1]:
                 if doi and str(doi).lower() != 'nan':
-                    doi_link = doi if doi.startswith('http') else f"https://doi.org/{doi}"
+                    doi_link = (
+                        doi if doi.startswith('http')
+                        else f"https://doi.org/{doi}"
+                    )
                     st.markdown(
                         f"<span class='data-label'>DOI:</span> "
                         f"<a href='{doi_link}' target='_blank'>{doi}</a>",
-                        unsafe_allow_html=True,
+                        unsafe_allow_html=True
                     )
 
             st.markdown("</div>", unsafe_allow_html=True)
@@ -942,7 +952,7 @@ def render_database():
         references_rendered = True
 
     # =====================================================
-    # 2️⃣ PUBCHEM FALLBACK (only if none above)
+    # 2️⃣ PUBCHEM FALLBACK (ONLY IF NONE ABOVE)
     # =====================================================
     if not references_rendered:
         pubchem_id = data.get("pubchem_id", None)
@@ -954,12 +964,12 @@ def render_database():
                 st.markdown('<div class="ref-card">', unsafe_allow_html=True)
                 st.markdown(
                     f"<div class='ref-title'>{ref['title']}</div>",
-                    unsafe_allow_html=True,
+                    unsafe_allow_html=True
                 )
                 render_row(
                     "PubMed",
                     ref["pubmed_id"],
-                    link=f"https://pubmed.ncbi.nlm.nih.gov/{ref['pubmed_id']}/",
+                    link=f"https://pubmed.ncbi.nlm.nih.gov/{ref['pubmed_id']}/"
                 )
                 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -972,87 +982,6 @@ def render_database():
         st.info("No references available for this structure.")
 
     st.markdown("</div>", unsafe_allow_html=True)
-
-                
-                # Fetch chembl ID and filter the references by it
-                chembl_id = None
-                possible_keys = ['external_reference', 'chembl_id', 'chembl']
-                for k in possible_keys:
-                    if k in data and str(data[k]).lower().startswith('chembl'):
-                        chembl_id = str(data[k])
-                        break
-
-                ref_matches = pd.DataFrame()
-                
-                # Strategy 1: Match via ChEMBL ID
-                if chembl_id and not refs_df.empty and 'chembl_id' in refs_df.columns:
-                     # Using case-insensitive match for robustness
-                     ref_matches = refs_df[refs_df['chembl_id'].astype(str).str.strip().str.upper() == chembl_id.upper()]
-
-                # Strategy 2: Match via Name if ChEMBL didn't yield results or as supplementary
-                # Some rows in references.xlsx use the compound name in the 'chembl_id' column (based on user prompt)
-                if ref_matches.empty and not refs_df.empty and 'chembl_id' in refs_df.columns:
-                    # Try matching the 'names' or 'name' from metadata against the 'chembl_id' column in refs
-                    # This handles the case: "some structures are added by their names along with their references"
-                    name_keys = ['names', 'name', 'molecule_name']
-                    found_name = None
-                    for nk in name_keys:
-                        if nk in data and str(data[nk]).lower() != 'nan':
-                            found_name = str(data[nk]).strip()
-                            break
-                    
-                    if found_name:
-                        # Case-insensitive match on the 'chembl_id' column in reference file
-                        # (The prompt implies names might be stored in that column or a similar identifier column)
-                        ref_matches = refs_df[refs_df['chembl_id'].astype(str).str.strip().str.lower() == found_name.lower()]
-
-                # Combine results if needed, or just display what we found
-                if not ref_matches.empty:
-                    # Deduplicate based on title or DOI to avoid showing same ref twice if strategies overlap
-                    ref_matches = ref_matches.drop_duplicates(subset=['title', 'doi'])
-
-                    for idx, ref_row in ref_matches.iterrows():
-                        ref_data = ref_row.to_dict()
-                        st.markdown(f'<div class="ref-card">', unsafe_allow_html=True)
-                        
-                        title = ref_data.get('title', 'N/A')
-                        doi = ref_data.get('doi', None)
-                        pubmed = ref_data.get('pubmed_id', 'N/A')
-                        journal = ref_data.get('journal', 'N/A')
-                        year = ref_data.get('year', 'N/A')
-                        
-                        clean_title = str(title).strip("(),'\"")
-                        if clean_title.lower() == 'nan': clean_title = "Untitled Reference"
-                        
-                        st.markdown(f"<div class='ref-title'>{clean_title}</div>", unsafe_allow_html=True)
-                        
-                        j_str = str(journal) if str(journal).lower() != 'nan' else ""
-                        y_str = str(year) if str(year).lower() != 'nan' else ""
-                        if j_str or y_str:
-                            meta_str = f"<b>{j_str}</b> ({y_str})"
-                            st.markdown(f"<div class='ref-meta'>{meta_str}</div>", unsafe_allow_html=True)
-
-                        cols = st.columns([1, 2])
-                        with cols[0]:
-                            pm_str = format_pubmed(pubmed)
-                            if pm_str:
-                                # Create PubMed link
-                                pm_link = f"https://pubmed.ncbi.nlm.nih.gov/{pm_str}/"
-                                render_row("PubMed", pm_str, link=pm_link)
-                        
-                        with cols[1]:
-                            if doi and str(doi).lower() != 'nan':
-                                clean_doi = str(doi).strip("(), ")
-                                doi_link = clean_doi if clean_doi.startswith('http') else f"https://doi.org/{clean_doi}"
-                                st.markdown(f"<span class='data-label'>DOI:</span> <a href='{doi_link}' target='_blank'>{clean_doi}</a>", unsafe_allow_html=True)
-                            else:
-                                pass 
-                                
-                        st.markdown('</div>', unsafe_allow_html=True)
-                else:
-                    st.info("No specific references found for this structure.")
-                
-                st.markdown("</div>", unsafe_allow_html=True)
 
 # ----------------------------------------------------
 # MAIN ROUTER
