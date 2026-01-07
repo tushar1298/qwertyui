@@ -8,7 +8,7 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
 BUCKET_NAME = "codes"
-REMOTE_APP_FILENAME = "app1.py"   # this is the REAL app in Supabase
+REMOTE_APP_FILENAME = "app.py"   # this is the REAL app in Supabase
 
 # --------------------------------------------------
 # LOAD REMOTE APP CODE
